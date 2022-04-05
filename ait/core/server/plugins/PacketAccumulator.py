@@ -1,6 +1,8 @@
 from ait.core.server.plugins import Plugin
 from gevent import Greenlet, sleep
 import ait.dsn.plugins.TCTF_Manager as tctf
+import ait.dsn.plugins.Graffiti as Graffiti
+
 
 class PacketAccumulator(Plugin):
     def __init__(self, inputs=None, outputs=None, zmq_args=None, timer_seconds=1):
@@ -49,3 +51,16 @@ class PacketAccumulator(Plugin):
             self.publish(payload)
             self.size_packet_queue_octets = 0
             self.packet_queue.clear()
+
+    def graffiti(self):
+        self_name = type(self).__name__
+        nodes = []
+        labels = {}
+        for i in self.inputs:
+            labels[(i, self_name)] = "Multiple Packets"
+        labels[self_name] = (f"Timer_Seconds: {self.timer_seconds}\n"
+                             f"Max Size Octets: {self.max_size_octets}")
+        node = Graffiti.Node(self_name, self.inputs, [], labels,
+                             Graffiti.Node_Type.PLUGIN)
+        nodes.append(node)
+        return nodes

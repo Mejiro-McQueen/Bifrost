@@ -1,5 +1,6 @@
 from ait.core.server.plugins import Plugin
 from ait.core import log
+
 import ait.dsn.plugins.TCTF_Manager as tctf
 
 class PacketPadder(Plugin):
@@ -19,3 +20,15 @@ class PacketPadder(Plugin):
         if not tctf.check_data_field_size(data):
             log.error(f"{self.logger} created oversized data.")
         self.publish(data)
+
+    def graffiti(self):
+        self_name = type(self).__name__
+        nodes = []
+        labels = {}
+        for i in self.inputs:
+            labels[(i,self_name)] = "Unpadded Packet"
+        labels[self_name] = (f"\t Pad Size Octets: {self.pad_octets}")
+        node = Graffiti.Node(self_name, self.inputs, [], labels,
+                             Graffiti.Node_Type.PLUGIN)
+        nodes.append(node)
+        return nodes
