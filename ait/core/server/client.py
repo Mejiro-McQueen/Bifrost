@@ -39,7 +39,11 @@ class ZMQClient(object):
 
     def publish(self, msg, topic=None):
         """
-        Publishes input message with client name as topic.
+        Publishes input message with client name as the topic if the
+        topic parameter is not provided.
+
+        Publishes input message with topic as the topic if the
+        topic parameter is provided. Topic can be an arbitrary string.
         """
         if not topic:
             topic = self.name
