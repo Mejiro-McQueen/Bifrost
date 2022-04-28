@@ -568,7 +568,6 @@ class PacketDefinition(json.SlotSerializer):
         "constants",
         "desc",
         "opcode",
-        "apid",
         "fields",
         "fieldmap",
         "uid",
