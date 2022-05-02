@@ -283,6 +283,11 @@ class DictUtils(object):
                 tstring = False
                 tnbits = 0
 
+                # Remove the array part from the type name of array types to
+                # prevent errors.
+                # TODO Properly handle array types.
+                typename = typename.split('[')[0]
+
                 if typename.startswith("LSB_") or typename.startswith("MSB_"):
                     tsigned = typename[4] != "U"
                     tfloat = typename[4] == "F" or typename[4] == "D"
