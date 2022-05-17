@@ -30,6 +30,8 @@ import sqlite3
 import ait
 from ait.core import cfg, cmd, dmc, evr, log, tlm
 
+from ait.core.tlm import FieldList
+
 
 class AITDBResult:
     """AIT Database result wrapper.
@@ -344,7 +346,8 @@ class InfluxDBBackend(GenericBackend):
                 val = getattr(packet.history, defn.name)
 
             if val is not None and not (isinstance(val, float) and math.isnan(val)):
-                fields[defn.name] = val
+                if not isinstance(val, FieldList):
+                    fields[defn.name] = val
 
         if len(fields) == 0:
             log.error("No fields present to insert into Influx")

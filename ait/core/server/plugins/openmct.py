@@ -283,6 +283,11 @@ class DictUtils(object):
                 tstring = False
                 tnbits = 0
 
+                # Remove the array part from the type name of array types to
+                # prevent errors.
+                # TODO Properly handle array types.
+                typename = typename.split('[')[0]
+
                 if typename.startswith("LSB_") or typename.startswith("MSB_"):
                     tsigned = typename[4] != "U"
                     tfloat = typename[4] == "F" or typename[4] == "D"
@@ -530,7 +535,7 @@ class AITOpenMctPlugin(Plugin):
         if self._debugEnabled:
             max_len = self.DEFAULT_DEBUG_MAX_LEN
             max_msg = (msg[:max_len] + "...") if len(msg) > max_len else msg
-            log.info("AitOpenMctPlugin: " + max_msg)
+            #log.info("AitOpenMctPlugin: " + max_msg)
 
     @staticmethod
     def datetime_jsonifier(obj):
