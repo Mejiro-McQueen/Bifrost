@@ -122,8 +122,8 @@ class FieldList(collections.Sequence):
         return (
             isinstance(other, collections.Sequence)
             and len(self) == len(other)
-            and all(self[n] == other[n] for n in range(len(self)))
-        )
+            and all([i == j for (i, j) in zip(self, other)])
+            )
 
     def __getitem__(self, key):
         return self._packet._getattr(self._defn.name, self._raw, key)
