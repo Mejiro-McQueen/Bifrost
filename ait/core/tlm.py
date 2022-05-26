@@ -535,6 +535,9 @@ class Packet:
         """
         return self._defn.validate(self, messages)
 
+    def __getitem__(self, k):
+        return PacketContext(self)[k]
+
 
 class PacketContext:
     """PacketContext
