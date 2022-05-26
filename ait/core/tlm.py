@@ -502,6 +502,19 @@ class Packet:
             or fieldname in self._defn.derivationmap
         )
 
+    def items(self):
+        d = {name: getattr(self, name) for name in self._defn.fieldmap}
+        for (k, v) in d.items():
+            yield (k, v)
+
+    def keys(self):
+        for i in self._defn.fieldmap:
+            yield i
+
+    def values(self):
+        for i in [getattr(self, name) for name in self._defn.fieldmap]:
+            yield i
+
     @property
     def nbytes(self):
         """The size of this packet in bytes."""
