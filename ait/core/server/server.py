@@ -10,6 +10,7 @@ from .stream import PortInputStream, ZMQStream, PortOutputStream
 from .broker import Broker
 from ait.core import log, cfg
 import copy
+import traceback
 
 
 class Server(object):
@@ -358,6 +359,8 @@ class Server(object):
                     log.error(
                         "{} creating plugin {}: {}".format(exc_type, index, value)
                     )
+                    log.error(f"{__name__} Error instantiating plugin: "
+                              f"{plugin}{traceback.format_exc()}")
             if not self.plugins:
                 log.warn(
                     "No valid plugin configurations found. No plugins will be added."
