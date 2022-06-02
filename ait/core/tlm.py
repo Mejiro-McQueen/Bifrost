@@ -803,7 +803,11 @@ class PacketExpression:
             result = eval(self._code, packet._defn.globals, context)
         except ZeroDivisionError:
             result = None
-
+        except Exception as e:
+            log.error(f"{__name__} -> Got exception {e} \n"
+                      f"{__name__} -> Likely cause is FieldList "
+                      "dntoeu not being supported with a FieldList as a variable.")
+            result = None
         return result
 
     def toJSON(self):  # noqa
