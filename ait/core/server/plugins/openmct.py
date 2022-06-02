@@ -43,6 +43,8 @@ import ait.core
 from ait.core import api, dtype, log, tlm
 from ait.core.server.plugin import Plugin
 
+import ait.dsn.plugins.Graffiti as Graffiti
+
 
 class ManagedWebSocket():
     """
@@ -337,7 +339,8 @@ class DictUtils(object):
         return mct_field_map
 
 
-class AITOpenMctPlugin(Plugin):
+class AITOpenMctPlugin(Plugin,
+                       Graffiti.Graphable):
     """This is the implementation of the AIT plugin for interaction with
     OpenMCT framework.  Telemetry dispatched from AIT server/broker
     is passed along to OpenMct in the expected format.
@@ -420,6 +423,16 @@ class AITOpenMctPlugin(Plugin):
         self.tlm_poll_greenlet = Greenlet.spawn(self.poll_telemetry_periodically)
 
         gevent.spawn(self.init)
+
+        Graffiti.Graphable.__init__(self)
+
+    def graffiti(self):
+        n = Graffiti.Node(self.self_name,
+                          inputs=[(i, "Telemetry") for i in self.inputs],
+                          outputs=[],
+                          label="Serve OpenMCT Telemetry",
+                          node_type=Graffiti.Node_Type.PLUGIN)
+        return [n]
 
     def _check_config(self):
         """Check AIT configuration for override values"""
