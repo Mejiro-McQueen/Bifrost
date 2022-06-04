@@ -338,16 +338,60 @@ class InfluxDBBackend(GenericBackend):
         """
         fields = {}
         pd = packet._defn
+        
+        for (field_name, value) in packet.items():
+            val = value
 
-        for defn in pd.fields:
-            val = getattr(packet.raw, defn.name)
+            if isinstance(val, FieldList):
+                field_list_type = pd.fieldmap[field_name]._type
+                is_field_type_string = field_list_type.type.string
+                field_list_units = pd.fieldmap[field_name].units
+                field_list_array_element_count = field_list_type.nelems
+                prim = field_list_type.type
 
-            if pd.history and defn.name in pd.history:
-                val = getattr(packet.history, defn.name)
 
-            if val is not None and not (isinstance(val, float) and math.isnan(val)):
-                if not isinstance(val, FieldList):
-                    fields[defn.name] = val
+                debug_values = [field_name,
+                                str(field_list_type),
+                                field_list_units,
+                                str(is_field_type_string),
+                                str(field_list_array_element_count),
+                                str(prim)]
+
+                log.debug(f"{__name__} -> Debug Values => {', '.join(debug_values)}")
+
+                if all(isinstance(i, str) for i in val):
+                    val = ", ".join(val)
+                    log.debug(f"{__name__} -> FieldList String => {field_name}: {val}")
+
+                elif "bytes" in field_name or 'md5' in field_name:
+                    accum = 0
+                    for i in val:
+                        accum = (accum << 8) + i
+                    val = str(hex(accum))
+                    log.debug(f"{__name__} -> FieldList Bytes => {field_name}: {val}")
+
+                elif all(isinstance(i, (float, int)) for i in val):
+                    val = [str(i) for i in val]
+                    val = ",".join(val)
+                    log.debug(f"{__name__} -> FieldList CSV => {field_name}: {val}")
+
+            elif isinstance(val, str):
+                log.debug(f"{__name__} -> String => {field_name}: {val}")
+
+            elif isinstance(val, bytes):
+                val = val.decode("ascii").rstrip("\x00")
+                log.debug(f"{__name__} -> Bytes => {field_name}: {val}")
+
+            elif val is None:
+                print("NONE: ", field_name, val)
+                val = "None"
+                log.error(f"{__name__} -> Value is None => {field_name}: {val}")
+
+            elif math.isnan(val):
+                log.error(f"{__name__} -> Value is NAN  => {field_name}: {val} {type(val)}")
+                val = 0.0
+
+            fields[field_name] = val
 
         if len(fields) == 0:
             log.error("No fields present to insert into Influx")
