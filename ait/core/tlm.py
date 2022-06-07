@@ -131,6 +131,30 @@ class FieldList(collections.Sequence):
     def __len__(self):
         return self._defn.type.nelems
 
+    def __str__(self):
+        return str(self.canonical_form())
+
+    def canonical_form(self):
+    # Convert to Canonical Form
+        field_name = self._defn.name
+        if all(isinstance(i, str) for i in self):
+            val = ", ".join(self)
+            log.debug(f"{__name__} -> FieldList String => {field_name}: {val}")
+
+        elif "bytes" in field_name or 'md5' in field_name:
+            accum = 0
+            for i in self:
+                accum = (accum << 8) + i
+            val = str(hex(accum))
+            log.debug(f"{__name__} -> FieldList Bytes => {field_name}: {val}")
+
+        elif all(isinstance(i, (float, int)) for i in self):
+            val = [str(i) for i in self]
+            val = ",".join(val)
+            log.debug(f"{__name__} -> FieldList CSV => {field_name}: {val}")
+
+        return val
+
 
 class DerivationDefinition(json.SlotSerializer):
     """DerivationDefinition
@@ -646,6 +670,9 @@ class PacketDefinition(json.SlotSerializer):
         for s in PacketDefinition.__slots__:
             setattr(self, s, state.get(s, None))
         self._update_globals()
+
+    def canonical_form(self):
+        return str(self)
 
     def _update_bytes(self, defns, start=0):
         """Updates the 'bytes' field in all FieldDefinition.
