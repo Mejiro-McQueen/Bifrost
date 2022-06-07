@@ -503,7 +503,7 @@ class Packet:
         )
 
     def items(self):
-        d = {name: getattr(self, name) for name in self._defn.fieldmap}
+        d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
         for (k, v) in d.items():
             yield (k, v)
 
