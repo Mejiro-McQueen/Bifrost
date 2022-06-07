@@ -383,7 +383,7 @@ class InfluxDBBackend(GenericBackend):
                     val = -666.999
                     
             elif math.isinf(val):
-                val = sys.maxsize
+                val = float(sys.maxsize)
                 log.debug(f"{__name__} -> Value is INF - Setting value to MAX_INT => {field_name}: {val} {type(val)}")
                 
             fields[field_name] = val
