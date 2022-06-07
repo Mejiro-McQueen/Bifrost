@@ -372,10 +372,17 @@ class InfluxDBBackend(GenericBackend):
                 val = "None"
                 log.error(f"{__name__} -> Value is None => {field_name}: {val}")
 
+                
+            elif field_name == 'avg_vector_frame' and not isinstance(val, str):
+                print(val, type(val))
+                val = f'UNKNOWN_{str(val)}'
+
             elif math.isnan(val):
                 log.error(f"{__name__} -> Value is NAN  => {field_name}: {val} {type(val)}")
                 val = "NOT A NUMBER"
-
+                if 'avg_vector_' in field_name:
+                    val = -666.999
+                
             fields[field_name] = val
 
         if len(fields) == 0:
