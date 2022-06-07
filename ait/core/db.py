@@ -343,37 +343,22 @@ class InfluxDBBackend(GenericBackend):
             val = value
 
             if isinstance(val, FieldList):
-                field_list_type = pd.fieldmap[field_name]._type
-                is_field_type_string = field_list_type.type.string
-                field_list_units = pd.fieldmap[field_name].units
-                field_list_array_element_count = field_list_type.nelems
-                prim = field_list_type.type
+                val = val.canonical_form()
+                # field_list_type = pd.fieldmap[field_name]._type
+                # is_field_type_string = field_list_type.type.string
+                # field_list_units = pd.fieldmap[field_name].units
+                # field_list_array_element_count = field_list_type.nelems
+                # prim = field_list_type.type
 
 
-                debug_values = [field_name,
-                                str(field_list_type),
-                                field_list_units,
-                                str(is_field_type_string),
-                                str(field_list_array_element_count),
-                                str(prim)]
+                # debug_values = [field_name,
+                #                 str(field_list_type),
+                #                 field_list_units,
+                #                 str(is_field_type_string),
+                #                 str(field_list_array_element_count),
+                #                 str(prim)]
 
-                log.debug(f"{__name__} -> Debug Values => {', '.join(debug_values)}")
-
-                if all(isinstance(i, str) for i in val):
-                    val = ", ".join(val)
-                    log.debug(f"{__name__} -> FieldList String => {field_name}: {val}")
-
-                elif "bytes" in field_name or 'md5' in field_name:
-                    accum = 0
-                    for i in val:
-                        accum = (accum << 8) + i
-                    val = str(hex(accum))
-                    log.debug(f"{__name__} -> FieldList Bytes => {field_name}: {val}")
-
-                elif all(isinstance(i, (float, int)) for i in val):
-                    val = [str(i) for i in val]
-                    val = ",".join(val)
-                    log.debug(f"{__name__} -> FieldList CSV => {field_name}: {val}")
+                # log.debug(f"{__name__} -> Debug Values => {', '.join(debug_values)}")
 
             elif isinstance(val, str):
                 log.debug(f"{__name__} -> String => {field_name}: {val}")
@@ -389,7 +374,7 @@ class InfluxDBBackend(GenericBackend):
 
             elif math.isnan(val):
                 log.error(f"{__name__} -> Value is NAN  => {field_name}: {val} {type(val)}")
-                val = 0.0
+                val = "NOT A NUMBER"
 
             fields[field_name] = val
 
