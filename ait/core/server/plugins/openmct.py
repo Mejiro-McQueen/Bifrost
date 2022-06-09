@@ -206,11 +206,17 @@ class DictUtils(object):
         mct_dict["packet"] = ait_pkt_id
         mct_dict["data"] = mct_pkt_value_dict
 
-        ait_pkt_fieldmap = ait_pkt_def.fieldmap
-        for ait_field_id in ait_pkt_fieldmap:
-            tlm_pt_value = getattr(ait_pkt, ait_field_id)
-            mct_pkt_value_dict[ait_field_id] = tlm_pt_value
+        # ait_pkt_fieldmap = ait_pkt_def.fieldmap
+        # for ait_field_id in ait_pkt_fieldmap:
+        #   tlm_pt_value = getattr(ait_pkt, ait_field_id)
+        #    mct_pkt_value_dict[ait_field_id] = tlm_pt_value
 
+        for (field_name, val) in ait_pkt.items():
+            if isinstance(val, tlm.FieldList):
+                val = val.canonical_form()
+            elif isinstance(val, bytes):
+                val = val.decode("ascii").rstrip("\x00")
+            mct_pkt_value_dict[field_name] = val
         return mct_dict
 
     @staticmethod
