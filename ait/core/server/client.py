@@ -1,3 +1,4 @@
+import sys
 import gevent
 import gevent.socket
 import gevent.server as gs
@@ -11,6 +12,8 @@ import socket
 import ait.core
 from ait.core import log
 import ait.core.server.utils as utils
+
+STRICT = True
 
 
 class ZMQClient(object):
@@ -111,8 +114,12 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                     continue
 
                 log.debug("{} received message from {}".format(self, topic))
-                self.process(message, topic=topic)
-
+                try:
+                    self.process(message, topic=topic)
+                except Exception as e:
+                    log.error(f"{self} -> encountered uncaught exception: {e} processing message {message}")
+                    if STRICT:
+                        sys.exit(f"Encountered exception while processing message. Now exiting.")
         except Exception as e:
             log.error(
                 "Exception raised in {} while receiving messages: {}".format(self, e)

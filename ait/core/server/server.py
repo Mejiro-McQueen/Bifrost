@@ -11,6 +11,9 @@ from .broker import Broker
 from ait.core import log, cfg
 import copy
 import traceback
+import sys
+
+STRICT = True
 
 
 class Server(object):
@@ -361,6 +364,8 @@ class Server(object):
                     )
                     log.error(f"{__name__} Error instantiating plugin: "
                               f"{plugin}{traceback.format_exc()}")
+                    if STRICT:
+                        sys.exit("Encountered uncaught exception while instantiating plugins.\n Now exiting.")
             if not self.plugins:
                 log.warn(
                     "No valid plugin configurations found. No plugins will be added."
