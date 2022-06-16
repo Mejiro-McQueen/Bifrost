@@ -25,6 +25,7 @@ import ait.core  # noqa
 from ait.core import log, tlm
 from ait.core.server.plugin import Plugin
 
+import traceback
 
 class DataArchive(Plugin):
     def __init__(
@@ -90,3 +91,4 @@ class DataArchive(Plugin):
             self.dbconn.insert(decoded, **kwargs)
         except Exception as e:
             log.error("Data archival failed with error: {}.".format(e))
+            log.error(traceback.print_exc())

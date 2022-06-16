@@ -1,11 +1,15 @@
 from ait.core.server.plugins import Plugin
 from gevent import Greenlet, sleep
 import ait.dsn.plugins.TCTF_Manager as tctf
+from ait.core import log
+import ait.dsn.plugins.Graffiti as Graffiti
 
-class PacketAccumulator(Plugin):
+
+class PacketAccumulator(Plugin,
+                        Graffiti.Graphable):
     def __init__(self, inputs=None, outputs=None, zmq_args=None, timer_seconds=1):
         super().__init__(inputs, outputs, zmq_args)
-        
+
         self.log_header = __name__ + "->"
         self.packet_queue = []
         self.size_packet_queue_octets = 0
@@ -13,11 +17,12 @@ class PacketAccumulator(Plugin):
         self.max_size_octets = tctf.get_max_data_field_size()
         self.timer_seconds = timer_seconds
         if not self.timer_seconds:
-            log.warn(f"{self.log_header} parameter timer_seconds was not providede in config.yaml")            
+            log.warn(f"{self.log_header} parameter timer_seconds was not providede in config.yaml")
         if self.timer_seconds < 1:
             self.timer_seconds = 1
             self.log.error(f"{self.log_header} timer value {timer_seconds} must be greater "
                            f"than or equal to 1. Defaulting to {self.timer_seconds} seconds.")
+        Graffiti.Graphable.__init__(self)
 
     def periodic_check(self):
         while True:
@@ -49,3 +54,11 @@ class PacketAccumulator(Plugin):
             self.publish(payload)
             self.size_packet_queue_octets = 0
             self.packet_queue.clear()
+
+    def graffiti(self):
+        n = Graffiti.Node(self.self_name,
+                          inputs=[(i, "Command Packets") for i in self.inputs],
+                          outputs=[],
+                          label=f"Accumulate Command Packets\n Max Size: {self.max_size_octets}",
+                          node_type=Graffiti.Node_Type.PLUGIN)
+        return [n]
