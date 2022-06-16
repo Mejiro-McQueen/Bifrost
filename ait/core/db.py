@@ -23,6 +23,7 @@ import datetime as dt
 import importlib
 import itertools
 import math
+import sys
 import os.path
 
 import sqlite3
@@ -338,16 +339,54 @@ class InfluxDBBackend(GenericBackend):
         """
         fields = {}
         pd = packet._defn
+        
+        for (field_name, value) in packet.items():
+            val = value
 
-        for defn in pd.fields:
-            val = getattr(packet.raw, defn.name)
+            if isinstance(val, FieldList):
+                val = val.canonical_form()
+                # field_list_type = pd.fieldmap[field_name]._type
+                # is_field_type_string = field_list_type.type.string
+                # field_list_units = pd.fieldmap[field_name].units
+                # field_list_array_element_count = field_list_type.nelems
+                # prim = field_list_type.type
 
-            if pd.history and defn.name in pd.history:
-                val = getattr(packet.history, defn.name)
 
-            if val is not None and not (isinstance(val, float) and math.isnan(val)):
-                if not isinstance(val, FieldList):
-                    fields[defn.name] = val
+                # debug_values = [field_name,
+                #                 str(field_list_type),
+                #                 field_list_units,
+                #                 str(is_field_type_string),
+                #                 str(field_list_array_element_count),
+                #                 str(prim)]
+
+                # log.debug(f"{__name__} -> Debug Values => {', '.join(debug_values)}")
+
+            elif isinstance(val, str):
+                log.debug(f"{__name__} -> String => {field_name}: {val}")
+
+            elif isinstance(val, bytes):
+                val = val.decode("ascii").rstrip("\x00")
+                log.debug(f"{__name__} -> Bytes => {field_name}: {val}")
+
+            elif val is None:
+                val = "None"
+                log.error(f"{__name__} -> Value is None => {field_name}: {val}")
+
+            elif field_name == 'avg_vector_frame' and not isinstance(val, str):
+                val = f'UNKNOWN_{str(val)}'
+                log.debug(f"{__name__} -> Value is Unknown for field avg_vector_frame => {field_name}: {val}")
+
+            elif math.isnan(val):
+                log.error(f"{__name__} -> Value is NAN  => {field_name}: {val} {type(val)}")
+                val = "NOT A NUMBER"
+                if 'avg_vector_' in field_name:
+                    val = -666.999
+                    
+            elif math.isinf(val):
+                val = float(sys.maxsize)
+                log.debug(f"{__name__} -> Value is INF - Setting value to MAX_INT => {field_name}: {val} {type(val)}")
+                
+            fields[field_name] = val
 
         if len(fields) == 0:
             log.error("No fields present to insert into Influx")
@@ -398,7 +437,7 @@ class InfluxDBBackend(GenericBackend):
             db_res = self._query(query)
             return AITDBResult(query=query, results=db_res)
         except self._backend.exceptions.InfluxDBClientError as e:
-            log.error(f"query_time_range failed with exception: {e}")
+            log.error(f"db.InfluxDBBackend.query failed with exception: {e}")
             return AITDBResult(query=query, errors=[str(e)])
 
     def query_packets(self, packets=None, start_time=None, end_time=None, **kwargs):
@@ -470,7 +509,7 @@ class InfluxDBBackend(GenericBackend):
         try:
             db_res = self._query(query_string, **kwargs)
         except self._backend.exceptions.InfluxDBClientError as e:
-            log.error(f"query_time_range failed with exception: {e}")
+            log.error(f"db.InfluxDBBackend.query failed with exception: {e}")
             return AITDBResult(query=query_string, errors=[str(e)])
 
         def influx_results_gen(db_res, **kwargs):
@@ -751,7 +790,7 @@ class SQLiteBackend(GenericBackend):
             results = self._query(query, **kwargs)
             return AITDBResult(query=query, results=results)
         except self._backend.OperationalError as e:
-            log.error(f"query_time_range failed with exception: {e}")
+            log.error(f"db.SQLiteBackend.query failed with exception: {e}")
             return AITDBResult(query=query, errors=[str(e)])
 
     def query_packets(self, packets=None, start_time=None, end_time=None, **kwargs):
@@ -832,7 +871,7 @@ class SQLiteBackend(GenericBackend):
             try:
                 results.append((pkt, self._query(query_string)))
             except self._backend.OperationalError as e:
-                log.error(f"query_time_range failed with exception: {e}")
+                log.error(f"db.SQLiteBackend.query failed with exception: {e}")
                 errs.append(str(e))
 
         def sqlite_results_gen(results, **kwargs):
