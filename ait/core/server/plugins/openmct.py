@@ -509,7 +509,7 @@ class AITOpenMctPlugin(Plugin,
 
         return dbconn
 
-    def process(self, input_data, topic=None):
+    def process(self, packet_metadata, topic=None):
         """
         Process received input message.
 
@@ -521,8 +521,9 @@ class AITOpenMctPlugin(Plugin,
         processed = False
 
         try:
-            pkl_load = pickle.loads(input_data)
-            pkt_id, pkt_data = int(pkl_load[0]), pkl_load[1]
+            packet_metadata = pickle.loads(packet_metadata)
+            pkt_id = packet_metadata['packet_uid']
+            pkt_data = packet_metadata['user_data_field']
             packet_def = self._get_tlm_packet_def(pkt_id)
             if packet_def:
                 packet_def = self._uidToPktDefMap[pkt_id]
