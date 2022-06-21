@@ -29,7 +29,7 @@ import logging.handlers
 
 import ait
 import ait.core
-
+from ait.core.sdls_utils import SDLS_Type, get_sdls_type
 
 NOTICE = logging.INFO + 1
 COMMAND = logging.INFO + 2
@@ -57,7 +57,7 @@ class LogFormatter(logging.Formatter):
 
         Creates and returns a new LogFormatter.
         """
-        format = "%(asctime)s | %(levelname)-8s | %(message)s"
+        format = "%(asctime)s | %(levelname)-8s | %(module)s -> %(funcName)s => %(message)s"
         datefmt = self.DATEFMT
         logging.Formatter.__init__(self, format, datefmt)
 
@@ -218,6 +218,8 @@ def init():
 
     logger.setLevel(logging.INFO)
 
+    logger.addFilter(SecurityFilter())
+    logger.addFilter(AnnoyingFilter())
     add_local_handlers(logger)
     add_remote_handlers(logger)
 
@@ -312,6 +314,57 @@ def notice(*args, **kwargs):
     logger.log(NOTICE, *args, **kwargs)
 
 
+class SecurityFilter(logging.Filter):
+    def filter(self, record):
+        sdls_type = get_sdls_type()
+        black_list_modules = []
+        if sdls_type is SDLS_Type.ENC or sdls_type is SDLS_Type.AUTH:
+            black_list_modules = ['TCTF_Manager',
+                                  'tctf',
+                                  'PacketPadder',
+                                  'PacketAccumulator',
+                                  ]
+
+        elif sdls_type is SDLS_Type.CLEAR or sdls_type is sdls_type.FINAL:
+            black_list_modules = ["EncrypterPlugin",
+                                  "encrypter",
+                                  "kmc_encrypter",
+                                  ]
+
+        if record.module in black_list_modules:
+            logger.info(f"SDLS_Type is {sdls_type}: Log messages for {record.module} are blacklisted.")
+            return False
+        else:
+            return True
+
+class AnnoyingFilter(logging.Filter):
+    black_list_phrases = ["specifies nonexistent path",
+                          "No handlers specified for",
+                          "Added outbound stream",
+                          "No plugin outputs specified for",
+                          "Starting <Plugin name=",
+                          "Subscribing <Plugin name=",
+                          "Added plugin <Plugin name=",
+                          "Added inbound stream",
+                          "Starting <ZMQStream name=",
+                          "Subscribing <ZMQStream name=",
+                          "Starting",
+                          "Current pickle file loaded:",
+                          "Published message from",
+                          "received message from",
+                          "to allow ZeroQM connection to complete",
+                          ]
+    black_list_modules = ["dmc"]
+    def filter(self, record):
+        msg = record.getMessage()
+        res = [phrase in msg for phrase in self.black_list_phrases]
+        if any(res):
+            return False
+        elif record.module in self.black_list_modules:
+            return False
+        else:
+            return True
+        
 # These are "guaranteed" at runtime to be not-None. Marking this as
 # type `Any` addresses mypy issues where log calls are marked as
 # "None" being not callable.
