@@ -13,8 +13,6 @@ import copy
 import traceback
 import sys
 
-STRICT = True
-
 
 class Server(object):
     """
@@ -24,6 +22,7 @@ class Server(object):
     """
 
     def __init__(self):
+        self.exit_on_exception = ait.config.get("server.exit_on_exception", False)
         self.broker = Broker()
 
         self.inbound_streams = []
@@ -362,9 +361,9 @@ class Server(object):
                     log.error(
                         "{} creating plugin {}: {}".format(exc_type, index, value)
                     )
-                    log.error(f"{__name__} Error instantiating plugin: "
+                    log.error(f"Error instantiating plugin: "
                               f"{plugin}{traceback.format_exc()}")
-                    if STRICT:
+                    if self.exit_on_exception:
                         sys.exit("Encountered uncaught exception while instantiating plugins.\n Now exiting.")
             if not self.plugins:
                 log.warn(
