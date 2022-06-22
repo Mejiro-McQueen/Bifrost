@@ -13,8 +13,6 @@ import ait.core
 from ait.core import log
 import ait.core.server.utils as utils
 
-STRICT = True
-
 
 class ZMQClient(object):
     """
@@ -31,6 +29,7 @@ class ZMQClient(object):
         **kwargs,
     ):
 
+        self.exit_on_exception = ait.config.get("server.exit_on_exception", False)
         self.context = zmq_context
         # open PUB socket & connect to broker
         self.pub = self.context.socket(zmq.PUB)
@@ -117,8 +116,8 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                 try:
                     self.process(message, topic=topic)
                 except Exception as e:
-                    log.error(f"{self} -> encountered uncaught exception: {e} processing message {message}")
-                    if STRICT:
+                    log.error(f"encountered uncaught exception: {e} processing message {message}")
+                    if self.exit_on_exception:
                         sys.exit(f"Encountered exception while processing message. Now exiting.")
         except Exception as e:
             log.error(
