@@ -359,32 +359,32 @@ class InfluxDBBackend(GenericBackend):
                 #                 str(field_list_array_element_count),
                 #                 str(prim)]
 
-                # log.debug(f"{__name__} -> Debug Values => {', '.join(debug_values)}")
+                # log.debug(f"Debug Values => {', '.join(debug_values)}")
 
             elif isinstance(val, str):
-                log.debug(f"{__name__} -> String => {field_name}: {val}")
+                log.debug(f"String => {field_name}: {val}")
 
             elif isinstance(val, bytes):
                 val = val.decode("ascii").rstrip("\x00")
-                log.debug(f"{__name__} -> Bytes => {field_name}: {val}")
+                log.debug(f"Bytes => {field_name}: {val}")
 
             elif val is None:
                 val = "None"
-                log.error(f"{__name__} -> Value is None => {field_name}: {val}")
+                log.error(f"Value is None => {field_name}: {val}")
 
             elif field_name == 'avg_vector_frame' and not isinstance(val, str):
                 val = f'UNKNOWN_{str(val)}'
-                log.debug(f"{__name__} -> Value is Unknown for field avg_vector_frame => {field_name}: {val}")
+                log.debug(f"Value is Unknown for field avg_vector_frame => {field_name}: {val}")
 
             elif math.isnan(val):
-                log.error(f"{__name__} -> Value is NAN  => {field_name}: {val} {type(val)}")
+                log.error(f"Value is NAN  => {field_name}: {val} {type(val)}")
                 val = "NOT A NUMBER"
                 if 'avg_vector_' in field_name:
                     val = -666.999
                     
             elif math.isinf(val):
                 val = float(sys.maxsize)
-                log.debug(f"{__name__} -> Value is INF - Setting value to MAX_INT => {field_name}: {val} {type(val)}")
+                log.debug(f"Value is INF - Setting value to MAX_INT => {field_name}: {val} {type(val)}")
                 
             fields[field_name] = val
 
@@ -393,16 +393,14 @@ class InfluxDBBackend(GenericBackend):
             return
 
         tags = kwargs.get("tags", {})
-
-        if isinstance(time, dt.datetime):
-            # time = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            time = time.strftime(dmc.RFC3339_Format)
-
+        time.format='iso'
+        fields['event_time_gps'] = str(time)  
         data = {"measurement": pd.name, "tags": tags, "fields": fields}
 
-        if time:
-            data["time"] = time
-
+        time.format='gps'
+        time_ns = int(float(str(time))*1E9)
+        data["time"] = time_ns
+        
         self._conn.write_points([data])
 
     def _query(self, query, **kwargs):
