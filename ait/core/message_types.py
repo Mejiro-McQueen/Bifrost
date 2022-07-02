@@ -27,3 +27,4 @@ class MessageType(Enum):
     RAF_STATUS = "state of RAF interface: <ACTIVE|READY|UNBOUND>, count of data received"
     TCP_STATUS = "Number of packets transferred/received"
     KMC_STATUS = "If message is received, KMC Plugin is active"
+    SC_STATE_OF_HEALTH_REPORT = "Spacecraft state of health report"
