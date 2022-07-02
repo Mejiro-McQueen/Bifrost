@@ -28,3 +28,4 @@ class MessageType(Enum):
     TCP_STATUS = "Number of packets transferred/received"
     KMC_STATUS = "If message is received, KMC Plugin is active"
     SC_STATE_OF_HEALTH_REPORT = "Spacecraft state of health report"
+    GRAFFITI_MAP = "DOT file containing AIT Pipeline" # TODO Do we want this, and does Joe want a DOT or PNG?
