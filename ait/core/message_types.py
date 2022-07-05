@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum
 class MessageType(Enum):
     """
     Use these enums (pubsub topics) when the type of data published is more important than the module who published it. (e.g, OpenMCT doesn't care who vcid_router plugin is, but it certainly cares about the VCID_COUNT it periodically publishes.)
@@ -22,10 +22,12 @@ class MessageType(Enum):
     STORED_TELEMETRY = "stored telemetry packets and metadata"
     VCID_COUNT = "vcid counts"
     LOG = "messages from log stream"
-    CLTU_STATUS = "state of CLTU interface: <ACTIVE|READY|UNBOUND>, count of CLTU sent"
-    RAF_DATA = "Raw frame from RAF Interface"
-    RAF_STATUS = "state of RAF interface: <ACTIVE|READY|UNBOUND>, count of data received"
+    CLTU_STATUS = "CLTU interface: <ACTIVE|READY|UNBOUND>,\n last status report,\n count of CLTU sent"
+    RAF_DATA = "Raw telemetry from RAF Interface"
+    RAF_STATUS = "RAF interface: <ACTIVE|READY|UNBOUND>,\n  last status report,\n count of data received"
+    HIGH_PRIORITY_CLTU_STATUS = "High priority CLTU Interfce Status\n (Disconnect/Restarts)"
+    HIGH_PRIORITY_RAF_STATUS = "High priority RAF Interfce Status\n (Disconnect/Restarts)"
     TCP_STATUS = "Number of packets transferred/received"
-    KMC_STATUS = "If message is received, KMC Plugin is active"
+    KMC_STATUS = "If message is received\n, KMC Plugin is active"
     SC_STATE_OF_HEALTH_REPORT = "Spacecraft state of health report"
     GRAFFITI_MAP = "DOT file containing AIT Pipeline" # TODO Do we want this, and does Joe want a DOT or PNG?
