@@ -359,7 +359,7 @@ class InfluxDBBackend(GenericBackend):
                 #                 str(field_list_array_element_count),
                 #                 str(prim)]
 
-                # log.debug(f"{__name__} -> Debug Values => {', '.join(debug_values)}")
+                # log.debug(f"Debug Values => {', '.join(debug_values)}")
 
             elif isinstance(val, str):
                 log.debug(f"String => {field_name}: {val}")
@@ -388,15 +388,21 @@ class InfluxDBBackend(GenericBackend):
 
         tags = kwargs.get("tags", {})
 
-        if isinstance(time, dt.datetime):
-            # time = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            time = time.strftime(dmc.RFC3339_Format)
+        ## TODO: Use for next release
+        # time.format='iso'
+        # fields['event_time_gps'] = str(time)
 
         data = {"measurement": pd.name, "tags": tags, "fields": fields}
 
-        if time:
-            data["time"] = time
+        ## TODO: Use for next release
+        # time.format='gps'
+        # time_ns = int(float(str(time))*1E9)
+        # data["time"] = time_ns
 
+        ## TODO: Delete on next release
+        time.format='iso'
+        data['time'] = time.datetime.isoformat("T") + "Z"
+        
         self._conn.write_points([data])
 
     def _query(self, query, **kwargs):
