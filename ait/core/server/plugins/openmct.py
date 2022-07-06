@@ -42,7 +42,7 @@ import importlib
 import ait.core
 from ait.core import api, dtype, log, tlm
 from ait.core.server.plugin import Plugin
-
+from ait.core.message_types import MessageType
 import ait.dsn.plugins.Graffiti as Graffiti
 
 
@@ -412,6 +412,8 @@ class AITOpenMctPlugin(Plugin,
         # Queues for AIT events events
         self._tlmQueue = api.GeventDeque(maxlen=100)
 
+        self._varMsgQueue = api.GeventDeque(maxlen=100)
+        
         # Load AIT tlm dict and create OpenMCT format of it
         self._aitTlmDict = tlm.getDefaultDict()
         self._mctTlmDict = DictUtils.format_tlmdict_for_openmct(self._aitTlmDict)
@@ -427,7 +429,8 @@ class AITOpenMctPlugin(Plugin,
 
         # Spawn greenlets to poll telemetry
         self.tlm_poll_greenlet = Greenlet.spawn(self.poll_telemetry_periodically)
-
+        self.varMsg_poll_greenlet = Greenlet.spawn(self.poll_variable_messages_periodically)
+        
         gevent.spawn(self.init)
 
         Graffiti.Graphable.__init__(self)
@@ -509,36 +512,42 @@ class AITOpenMctPlugin(Plugin,
 
         return dbconn
 
-    def process(self, packet_metadata, topic=None):
-        """
-        Process received input message.
-
-        This plugin should be configured to only receive telemetry.
-
-        Received messaged is expected to be a tuple of the form produced
-        by AITPacketHandler.
-        """
-        processed = False
-
-        try:
-            packet_metadata = pickle.loads(packet_metadata)
-            pkt_id = packet_metadata['packet_uid']
-            pkt_data = packet_metadata['user_data_field']
-            packet_def = self._get_tlm_packet_def(pkt_id)
-            if packet_def:
-                packet_def = self._uidToPktDefMap[pkt_id]
-                tlm_packet = tlm.Packet(packet_def, data=bytearray(pkt_data))
-                self._process_telem_msg(tlm_packet)
-                processed = True
-            else:
-                log.error("OpenMCT Plugin received telemetry message with unknown "
+    def process(self, messages_input, topic=None):
+        def dispatch_telem_msg(packet_metadata_list):
+            for packet_metadata in packet_metadata_list:
+                pkt_id = packet_metadata['packet_uid']
+                pkt_data = packet_metadata['user_data_field']
+                packet_def = self._get_tlm_packet_def(pkt_id)
+                if packet_def:
+                    packet_def = self._uidToPktDefMap[pkt_id]
+                    tlm_packet = tlm.Packet(packet_def, data=bytearray(pkt_data))
+                    self._process_telem_msg(tlm_packet)
+                else:
+                    log.error("OpenMCT Plugin received telemetry message with unknown "
                           f"packet id {pkt_id}.  Skipping input...")
-        except Exception as e:
-            log.error(f"OpenMCT Plugin: {e}")
-            log.error("OpenMCT Plugin received input_data that it is unable to "
-                      "process. Skipping input ...")
+       # try:
+        if topic == "log_stream":
+        # log stream special case
+            message_type = MessageType.LOG
+            message = messages_input
+        else:
+            message_type, message = messages_input
 
-        return processed
+        if message_type is MessageType.REAL_TIME_TELEMETRY:
+                dispatch_telem_msg(message)
+        elif message_type is MessageType.LOG:
+            #self._process_log_msg(message)
+            pass
+        elif isinstance(message_type, MessageType):
+            message = {message_type.name: message}
+            self._process_variable_msg(message)
+            log.info(f"{message}")
+        else:
+            log.error(f"Unknown message_type: {message_type} for {message}")
+            log.info(f"{message_type}:{message}")
+            
+    def _process_variable_msg(self, message):
+        self._varMsgQueue.append(message)
 
     def _process_telem_msg(self, tlm_packet):
         """
@@ -710,6 +719,24 @@ class AITOpenMctPlugin(Plugin,
                 + str(wser)
             )
 
+    def get_variable_messages(self):
+        websocket = bottle.request.environ.get("wsgi.websocket")
+
+        if not websocket:
+            bottle.abort(400, "Expected WebSocket request.")
+            return
+
+        req_env = bottle.request.environ
+        client_ip = (
+            req_env.get("HTTP_X_FORWARDED_FOR")
+            or req_env.get("REMOTE_ADDR")
+            or "(unknown)"
+        )
+
+        if websocket and not websocket.closed:
+            mws = ManagedWebSocket(websocket, client_ip)
+            self.manage_web_socket(mws)
+        
     def get_realtime_tlm(self):
         """Handles realtime packet dispatch via websocket layers"""
         websocket = bottle.request.environ.get("wsgi.websocket")
@@ -1002,7 +1029,20 @@ class AITOpenMctPlugin(Plugin,
     # ---------------------------------------------------------------------
 
     # Greelet-invoked functions
+    def poll_variable_messages_periodically(self):
+        while True:
+            res = self.poll_variable_messages()
+            if not res:
+                gsleep(AITOpenMctPlugin.DEFAULT_TELEM_CHECK_SLEEP_SECS)
 
+    def poll_variable_messages(self):
+        if self._varMsgQueue:
+            msg = self._varMsgQueue.popleft(timeout=self.DEFAULT_TELEM_QUEUE_TIMEOUT_SECS)
+            msg = json.dumps(msg)
+            self.broadcast_message(msg)
+            return True
+        return False
+    
     def poll_telemetry_periodically(self):
         while True:
             real_tlm_emitted = self.poll_telemetry()
@@ -1202,6 +1242,8 @@ class AITOpenMctPlugin(Plugin,
 
         # Http: tlm query for a given time range
         self._app.route("/tlm/history/<mct_pkt_id>", callback=self.get_historical_tlm)
+
+        self._app.route("/variable_messages", callback=self.get_variable_messages)
 
         # Enable CORS via headers
         self._app.add_hook("after_request", self._cors_headers_hook)
