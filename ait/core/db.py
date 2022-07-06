@@ -393,13 +393,21 @@ class InfluxDBBackend(GenericBackend):
             return
 
         tags = kwargs.get("tags", {})
-        time.format='iso'
-        fields['event_time_gps'] = str(time)  
+
+        ## TODO: Use for next release
+        # time.format='iso'
+        # fields['event_time_gps'] = str(time)
+
         data = {"measurement": pd.name, "tags": tags, "fields": fields}
 
-        time.format='gps'
-        time_ns = int(float(str(time))*1E9)
-        data["time"] = time_ns
+        ## TODO: Use for next release
+        # time.format='gps'
+        # time_ns = int(float(str(time))*1E9)
+        # data["time"] = time_ns
+
+        ## TODO: Delete on next release
+        time.format='iso'
+        data['time'] = time.datetime.isoformat("T") + "Z"
         
         self._conn.write_points([data])
 
