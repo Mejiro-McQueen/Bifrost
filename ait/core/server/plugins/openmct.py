@@ -445,8 +445,13 @@ class AITOpenMctPlugin(Plugin,
         Graffiti.Graphable.__init__(self)
 
     def graffiti(self):
+        variable_messages_inputs = [ MessageType[i] for i in self.inputs if i in MessageType.__members__ ]
+        variable_messages_labels = [(i.name, i.value) for i in variable_messages_inputs]
+        telemetry_inputs = [i for i in self.inputs if i not in MessageType.__members__]
+        telemetry_messages_labels = [(i, "Telemetry") for i in telemetry_inputs]
+        log_input_labels = [(i, "Logs") for i in self.inputs if "log" in i]
         n = Graffiti.Node(self.self_name,
-                          inputs=[(i, "Telemetry") for i in self.inputs],
+                          inputs=telemetry_messages_labels + variable_messages_labels + log_input_labels,
                           outputs=[],
                           label="Serve OpenMCT Telemetry",
                           node_type=Graffiti.Node_Type.PLUGIN)
