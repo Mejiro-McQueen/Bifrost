@@ -372,15 +372,9 @@ class InfluxDBBackend(GenericBackend):
                 val = "None"
                 log.error(f"Value is None => {field_name}: {val}")
 
-            elif field_name == 'avg_vector_frame' and not isinstance(val, str):
-                val = f'UNKNOWN_{str(val)}'
-                log.debug(f"Value is Unknown for field avg_vector_frame => {field_name}: {val}")
-
             elif math.isnan(val):
                 log.error(f"Value is NAN  => {field_name}: {val} {type(val)}")
                 val = "NOT A NUMBER"
-                if 'avg_vector_' in field_name:
-                    val = -666.999
                     
             elif math.isinf(val):
                 val = float(sys.maxsize)
