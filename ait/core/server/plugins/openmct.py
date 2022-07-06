@@ -54,12 +54,18 @@ class ManagedWebSocket():
 
     PACKET_ID_WILDCARD = "*"
 
-    def __init__(self, web_socket, client_ip=None):
+    def __init__(self, web_socket, client_ip=None,
+                 subscribe_all_packets=False,
+                 subscribe_all_fields=False,
+                 variable_messages=False):
         self.web_socket = web_socket
         self.client_ip = client_ip
         self._subscribed_dict = dict()  # Dict from packetId to list of fieldIds
         self.is_closed = False
         self.is_error = False
+        self.subscribe_all_packets = subscribe_all_packets
+        self.subscribe_all_fields = subscribe_all_fields
+        self.variable_messages = variable_messages
         self.id = ManagedWebSocket._generate_id()
 
     @staticmethod
@@ -129,7 +135,7 @@ class ManagedWebSocket():
         :param pkt_id: AIT Packet name
         :return: True if packet id is accepted, False otherwise
         """
-        if pkt_id == ManagedWebSocket.PACKET_ID_WILDCARD:
+        if pkt_id == ManagedWebSocket.PACKET_ID_WILDCARD or self.subscribe_all_packets:
             return True
         field_set = self._subscribed_dict.get(pkt_id, None)
         if field_set:  # Should be true if set is non-empty
@@ -151,7 +157,9 @@ class ManagedWebSocket():
         orig_fld_dict = omc_packet['data']
         if not orig_fld_dict:
             return None
-
+        if self.subscribe_all_fields:
+            packet = {'packet': packet_id, 'data': orig_fld_dict}
+            return packet
         sub_pkt = None
 
         # Get set of fields of the packet to which session is subscribed
@@ -393,6 +401,7 @@ class AITOpenMctPlugin(Plugin,
 
         self._datastore = datastore
 
+        self.subscribe_all_fields_and_packets = kwargs.get('subscribe_all_fields_and_packets', False)
         # Initialize state fields
         # Debug state fields
         self._debugEnabled = AITOpenMctPlugin.DEFAULT_DEBUG
@@ -521,7 +530,7 @@ class AITOpenMctPlugin(Plugin,
                 if packet_def:
                     packet_def = self._uidToPktDefMap[pkt_id]
                     tlm_packet = tlm.Packet(packet_def, data=bytearray(pkt_data))
-                    self._process_telem_msg(tlm_packet)
+                    self._process_telem_msg((packet_metadata, tlm_packet))
                 else:
                     log.error("OpenMCT Plugin received telemetry message with unknown "
                           f"packet id {pkt_id}.  Skipping input...")
@@ -541,10 +550,8 @@ class AITOpenMctPlugin(Plugin,
         elif isinstance(message_type, MessageType):
             message = {message_type.name: message}
             self._process_variable_msg(message)
-            log.info(f"{message}")
         else:
             log.error(f"Unknown message_type: {message_type} for {message}")
-            log.info(f"{message_type}:{message}")
             
     def _process_variable_msg(self, message):
         self._varMsgQueue.append(message)
@@ -734,7 +741,7 @@ class AITOpenMctPlugin(Plugin,
         )
 
         if websocket and not websocket.closed:
-            mws = ManagedWebSocket(websocket, client_ip)
+            mws = ManagedWebSocket(websocket, client_ip, variable_messages=True)
             self.manage_web_socket(mws)
         
     def get_realtime_tlm(self):
@@ -753,7 +760,9 @@ class AITOpenMctPlugin(Plugin,
         )
 
         if websocket and not websocket.closed:
-            mws = ManagedWebSocket(websocket, client_ip)
+            mws = ManagedWebSocket(websocket, client_ip,
+                                   self.subscribe_all_fields_and_packets,
+                                   self.subscribe_all_fields_and_packets)
             self.manage_web_socket(mws)
 
     def manage_web_socket(self, mws):
@@ -1039,7 +1048,7 @@ class AITOpenMctPlugin(Plugin,
         if self._varMsgQueue:
             msg = self._varMsgQueue.popleft(timeout=self.DEFAULT_TELEM_QUEUE_TIMEOUT_SECS)
             msg = json.dumps(msg)
-            self.broadcast_message(msg)
+            self.broadcast_variable_message(msg)
             return True
         return False
     
@@ -1058,11 +1067,11 @@ class AITOpenMctPlugin(Plugin,
         :return: True if real telemetry emitted, False otherwise.
         """
         try:
-            self.dbg_message("Polling Telemetry queue...")
-            ait_pkt = self._tlmQueue.popleft(timeout=self.DEFAULT_TELEM_QUEUE_TIMEOUT_SECS)
+            
+            packet_metadata, ait_pkt = self._tlmQueue.popleft(timeout=self.DEFAULT_TELEM_QUEUE_TIMEOUT_SECS)
             openmct_pkt = DictUtils.format_tlmpkt_for_openmct(ait_pkt)
             self.dbg_message(f"Broadcasting {openmct_pkt} to managed web-sockets...")
-            self.broadcast_packet(openmct_pkt)
+            self.broadcast_packet((packet_metadata, openmct_pkt))
             return True
 
         except IndexError:
@@ -1085,13 +1094,19 @@ class AITOpenMctPlugin(Plugin,
                  False otherwise.
         """
         pkt_emitted_by_any = False
+        packet_metadata, openmct_pkt = openmct_pkt
         openmct_pkt_id = openmct_pkt["packet"]
-
+        
         for mws in self._socket_set:
             pkt_emitted_by_cur = self.send_socket_pkt_mesg(mws,
-                                                           openmct_pkt_id, openmct_pkt)
+                                                           openmct_pkt_id, openmct_pkt, packet_metadata)
             pkt_emitted_by_any = pkt_emitted_by_cur or pkt_emitted_by_any
         return pkt_emitted_by_any
+
+    def broadcast_variable_message(self, message):
+        for mws in self._socket_set:
+            if mws.variable_messages:
+                self.managed_web_socket_send(mws, message)
 
     def broadcast_message(self, message):
         """
@@ -1102,7 +1117,7 @@ class AITOpenMctPlugin(Plugin,
         for mws in self._socket_set:
             self.managed_web_socket_send(mws, message)
 
-    def send_socket_pkt_mesg(self, mws, pkt_id, mct_pkt):
+    def send_socket_pkt_mesg(self, mws, pkt_id, mct_pkt, packet_metadata):
         """
         Attempts to send socket message if managed web-socket is alive
         and accepts the message by inspecting the pkt_id value
@@ -1111,14 +1126,19 @@ class AITOpenMctPlugin(Plugin,
         :param mct_pkt: OpenMCT telem packet
         :return: True if message sent to web-socket, False otherwise
         """
-        if mws.is_alive and mws.accepts_packet(pkt_id):
+        if mws.is_alive and (mws.accepts_packet(pkt_id) or mws.subscribe_all_packets):
             # Collect only fields the subscription cares about
             subscribed_pkt = mws.create_subscribed_packet(mct_pkt)
             # If that new packet still has fields, stringify and send
             if subscribed_pkt:
-                pkt_mesg = json.dumps(subscribed_pkt,
-                                      default=self.datetime_jsonifier)
-                self.dbg_message("Sending realtime telemetry web-socket msg "
+                metadata = {k:v for (k,v) in packet_metadata.items() if k != "user_data_field"}
+                t = metadata['event_time_gps'] = metadata['event_time_gps']
+                t.format='iso'
+                metadata['event_time_gps'] = str(t)
+                subscribed_pkt['metadata'] = metadata
+                pkt_mesg = json.dumps(subscribed_pkt)#,
+                                      #default=self.datetime_jsonifier)
+                log.error("Sending realtime telemetry web-socket msg "
                                  f"to websocket {mws.id}: {pkt_mesg}")
                 self.managed_web_socket_send(mws, pkt_mesg)
                 return True
