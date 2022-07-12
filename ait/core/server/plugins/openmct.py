@@ -1052,7 +1052,11 @@ class AITOpenMctPlugin(Plugin,
     def poll_variable_messages(self):
         if self._varMsgQueue:
             msg = self._varMsgQueue.popleft(timeout=self.DEFAULT_TELEM_QUEUE_TIMEOUT_SECS)
-            msg = json.dumps(msg)
+            try:
+                msg = json.dumps(msg)
+            except:
+                log.error(msg)
+                raise msg
             self.broadcast_variable_message(msg)
             return True
         return False
