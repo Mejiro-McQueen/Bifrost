@@ -1,26 +1,25 @@
 from ait.core.server.plugins import Plugin
 from gevent import Greenlet, sleep
-import ait.dsn.plugins.TCTF_Manager as tctf
+
 from ait.core import log
 import ait.dsn.plugins.Graffiti as Graffiti
-
+from ait.dsn.plugins.TCTF_Manager import get_max_data_field_size, check_data_field_size
 
 class PacketAccumulator(Plugin,
                         Graffiti.Graphable):
     def __init__(self, inputs=None, outputs=None, zmq_args=None, timer_seconds=1):
         super().__init__(inputs, outputs, zmq_args)
 
-        self.log_header = __name__ + "->"
         self.packet_queue = []
         self.size_packet_queue_octets = 0
         self.glet = Greenlet.spawn(self.periodic_check)
-        self.max_size_octets = tctf.get_max_data_field_size()
+        self.max_size_octets = get_max_data_field_size()
         self.timer_seconds = timer_seconds
         if not self.timer_seconds:
-            log.warn(f"{self.log_header} parameter timer_seconds was not providede in config.yaml")
+            log.warn(f"parameter timer_seconds was not providede in config.yaml")
         if self.timer_seconds < 1:
             self.timer_seconds = 1
-            self.log.error(f"{self.log_header} timer value {timer_seconds} must be greater "
+            self.log.error(f"timer value {timer_seconds} must be greater "
                            f"than or equal to 1. Defaulting to {self.timer_seconds} seconds.")
         Graffiti.Graphable.__init__(self)
 
@@ -31,10 +30,10 @@ class PacketAccumulator(Plugin,
 
     def process(self, data, topic=None):
         if not data:
-            log.error(f"{self.log_header} received no data from {topic}.")
+            log.error(f"received no data from {topic}.")
 
-        if not tctf.check_data_field_size(data):
-            log.error(f"{self.log_header} initial payload from {topic} is oversized!")
+        if not check_data_field_size(data):
+            log.error(f"initial payload from {topic} is oversized!")
             
         data_len = len(data)
         # Does not fit, need to emit
@@ -49,8 +48,9 @@ class PacketAccumulator(Plugin,
             payload = self.packet_queue.pop(0)
             for i in self.packet_queue:
                 payload += i
-            if not tctf.check_data_field_size(payload):
-                log.error("{self.log_header} created oversized payload.")
+            if not check_data_field_size(payload):
+                log.error("created oversized payload.")
+            log.debug(f"publishing payload of size: {len(payload)}")
             self.publish(payload)
             self.size_packet_queue_octets = 0
             self.packet_queue.clear()
