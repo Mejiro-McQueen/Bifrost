@@ -58,11 +58,20 @@ class Task_Message():
 
 class File_Reassembly_Task(Task_Message):
     """ This task is run automatically with ID 0"""
-    def __init__(self, path):
+    def __init__(self, path, filename, ground_id):
         Task_Message.__init__(self, 0)
         self.path = path
+        self.filename = filename
+        self.ground_id = ground_id
+        self.md5_pass = False
 
-
+    def subset_map(self):
+        a = {"status": self.result['initialize_file_downlink_reply']['status'],
+             "md5_pass": self.md5_pass,
+             "filepath": str(self.path/self.filename)}
+        b = {self.ground_id:a}
+        return b
+        
 class S3_File_Upload_Task(Task_Message):
     """
     Request FileManager to upload local path to S3 bucket.
