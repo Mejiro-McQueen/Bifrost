@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class MessageType(Enum):
     """
     Use these enums (pubsub topics) when the type of data published is more important than the module who published it. (e.g, OpenMCT doesn't care who vcid_router plugin is, but it certainly cares about the VCID_COUNT it periodically publishes.)
@@ -39,11 +40,17 @@ class MessageType(Enum):
     def to_tuple(self):
         return (self.name, self.value)
 
+
 class Task_Message():
+
+    @classmethod
+    def name(cls):
+        return cls.__name__
+
     def __init__(self, ID):
         self.ID = ID
         self.result = None
-        self.name = self.__class__.__name__
+        self.name = self.name()
 
     def __repr__(self):
         return str(self.__dict__)
@@ -66,3 +73,43 @@ class S3_File_Upload_Task(Task_Message):
         self.bucket = bucket
         self.filepath = filepath
         self.s3_path = s3_path
+
+
+class CSV_to_Influx_Task(Task_Message):
+    def __init__(self, ID, filepath, postprocessor):
+        Task_Message.__init__(self, ID)
+        self.filepath = filepath
+        self.postprocessor = postprocessor
+        self.measurement, self.df = self.postprocessor(filepath)
+
+
+class Tar_Decompress_Task(Task_Message):
+    from pathlib import Path
+    import tarfile
+
+    def __init__(self, ID, filepath, recursive=True):
+        Task_Message.__init__(self, ID)
+        self.filepath = self.Path(filepath)
+        self.recursive = recursive
+        self.extracted_root_path = None
+        self.result = self.process()
+        
+    def process(self):
+        self.untar(self.filepath, self.recursive)
+        root = self.extracted_root_path
+
+        interesting_paths = (set(root.glob("**/*")) -
+                             set(root.glob("**/*.tar.bz2*")))
+        interesting_paths = [i for i in interesting_paths if i.is_file()]
+        self.result = interesting_paths
+        return self.result
+
+    def untar(self, filepath, recursive):
+        new_path = filepath.parent / filepath.name.replace(".tar.bz2", "")
+        if self.extracted_root_path is None:
+            self.extracted_root_path = new_path
+        with self.tarfile.open(filepath, "r:bz2") as tar:
+            tar.extractall(new_path)
+        if recursive:
+            for i in new_path.glob('*.tar.bz2*'):
+                self.untar(i, recursive)
