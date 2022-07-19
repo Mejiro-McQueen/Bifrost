@@ -69,20 +69,30 @@ class File_Reassembly_Task(Task_Message):
         a = {"status": self.result['initialize_file_downlink_reply']['status'],
              "md5_pass": self.md5_pass,
              "filepath": str(self.path/self.filename)}
-        b = {self.ground_id:a}
-        return b
+        return a
         
 class S3_File_Upload_Task(Task_Message):
     """
     Request FileManager to upload local path to S3 bucket.
     If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
     """
-    def __init__(self, ID, bucket, filepath, s3_path):
+    def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_id):
         Task_Message.__init__(self, ID)
         self.bucket = bucket
         self.filepath = filepath
         self.s3_path = s3_path
-
+        self.ground_id = ground_id
+        self.s3_region = s3_region
+        
+    def canonical_s3_url(self):
+        if self.result: # A result implies an error occured
+            return None
+        a = f"https://{self.bucket}.s3-{self.s3_region}.amazonaws.com/{self.s3_path}"
+        b = {'s3_url': a,
+             's3_region': self.s3_region,
+             's3_bucket': self.bucket,
+             's3_key': str(self.s3_path)}
+        return b
 
 class CSV_to_Influx_Task(Task_Message):
     def __init__(self, ID, filepath, postprocessor):
