@@ -1,4 +1,5 @@
 from enum import Enum
+
 class MessageType(Enum):
     """
     Use these enums (pubsub topics) when the type of data published is more important than the module who published it. (e.g, OpenMCT doesn't care who vcid_router plugin is, but it certainly cares about the VCID_COUNT it periodically publishes.)
@@ -31,3 +32,37 @@ class MessageType(Enum):
     KMC_STATUS = "If message is received\n, KMC Plugin is active"
     SC_STATE_OF_HEALTH_REPORT = "Spacecraft state of health report"
     GRAFFITI_MAP = "DOT file containing AIT Pipeline" # TODO Do we want this, and does Joe want a DOT or PNG?
+    TASK_FILE_DOWNLINK_RESULT = "Result of a File Downlink Reassembly Task"
+    TASK_FILE_DOWNLINK_UPDATE = "Result of a File Dowlink Update Task"
+    TASK_S3_UPLOAD_RESULT = "Result of an S3 File Upload Task"
+
+    def to_tuple(self):
+        return (self.name, self.value)
+
+class Task_Message():
+    def __init__(self, ID):
+        self.ID = ID
+        self.result = None
+        self.name = self.__class__.__name__
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+
+class File_Reassembly_Task(Task_Message):
+    """ This task is run automatically with ID 0"""
+    def __init__(self, path):
+        Task_Message.__init__(self, 0)
+        self.path = path
+
+
+class S3_File_Upload_Task(Task_Message):
+    """
+    Request FileManager to upload local path to S3 bucket.
+    If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
+    """
+    def __init__(self, ID, bucket, filepath, s3_path):
+        Task_Message.__init__(self, ID)
+        self.bucket = bucket
+        self.filepath = filepath
+        self.s3_path = s3_path
