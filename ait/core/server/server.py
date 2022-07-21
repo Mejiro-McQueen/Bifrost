@@ -24,6 +24,7 @@ class Server(object):
     """
 
     def __init__(self):
+        self.exit_on_exception = ait.config.get("server.exit_on_exception", False)
         self.broker = Broker()
 
         self.inbound_streams = []

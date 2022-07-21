@@ -23,12 +23,15 @@ import datetime as dt
 import importlib
 import itertools
 import math
+import sys
 import os.path
 
 import sqlite3
 
 import ait
 from ait.core import cfg, cmd, dmc, evr, log, tlm
+
+from ait.core.tlm import FieldList
 
 
 class AITDBResult:
@@ -286,10 +289,12 @@ class InfluxDBBackend(GenericBackend):
 
         self._conn = self._backend.InfluxDBClient(host, port, un, pw)
 
+        self.pandas_client = self._backend.DataFrameClient(host, port, un, pw)
         if dbname not in [v["name"] for v in self._conn.get_list_database()]:
             self.create(database=dbname)
 
         self._conn.switch_database(dbname)
+        self.pandas_client.switch_database(dbname)
 
     def create(self, **kwargs):
         """Create a database in a connected InfluxDB instance
@@ -336,15 +341,48 @@ class InfluxDBBackend(GenericBackend):
         """
         fields = {}
         pd = packet._defn
+        
+        for (field_name, value) in packet.items():
+            val = value
 
-        for defn in pd.fields:
-            val = getattr(packet.raw, defn.name)
+            if isinstance(val, FieldList):
+                val = val.canonical_form()
+                # field_list_type = pd.fieldmap[field_name]._type
+                # is_field_type_string = field_list_type.type.string
+                # field_list_units = pd.fieldmap[field_name].units
+                # field_list_array_element_count = field_list_type.nelems
+                # prim = field_list_type.type
 
-            if pd.history and defn.name in pd.history:
-                val = getattr(packet.history, defn.name)
 
-            if val is not None and not (isinstance(val, float) and math.isnan(val)):
-                fields[defn.name] = val
+                # debug_values = [field_name,
+                #                 str(field_list_type),
+                #                 field_list_units,
+                #                 str(is_field_type_string),
+                #                 str(field_list_array_element_count),
+                #                 str(prim)]
+
+                # log.debug(f"Debug Values => {', '.join(debug_values)}")
+
+            elif isinstance(val, str):
+                log.debug(f"String => {field_name}: {val}")
+
+            elif isinstance(val, bytes):
+                val = val.decode("ascii").rstrip("\x00")
+                log.debug(f"Bytes => {field_name}: {val}")
+
+            elif val is None:
+                val = "None"
+                log.error(f"Value is None => {field_name}: {val}")
+
+            elif math.isnan(val):
+                log.error(f"Value is NAN  => {field_name}: {val} {type(val)}")
+                val = "NOT A NUMBER"
+                    
+            elif math.isinf(val):
+                val = float(sys.maxsize)
+                log.debug(f"Value is INF - Setting value to MAX_INT => {field_name}: {val} {type(val)}")
+                
+            fields[field_name] = val
 
         if len(fields) == 0:
             log.error("No fields present to insert into Influx")
@@ -352,15 +390,21 @@ class InfluxDBBackend(GenericBackend):
 
         tags = kwargs.get("tags", {})
 
-        if isinstance(time, dt.datetime):
-            # time = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            time = time.strftime(dmc.RFC3339_Format)
+        ## TODO: Use for next release
+        # time.format='iso'
+        # fields['event_time_gps'] = str(time)
 
         data = {"measurement": pd.name, "tags": tags, "fields": fields}
 
-        if time:
-            data["time"] = time
+        ## TODO: Use for next release
+        # time.format='gps'
+        # time_ns = int(float(str(time))*1E9)
+        # data["time"] = time_ns
 
+        ## TODO: Delete on next release
+        time.format='iso'
+        data['time'] = time.datetime.isoformat("T") + "Z"
+        
         self._conn.write_points([data])
 
     def _query(self, query, **kwargs):
