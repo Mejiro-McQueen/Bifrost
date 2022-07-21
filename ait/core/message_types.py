@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class MessageType(Enum):
     """
     Use these enums (pubsub topics) when the type of data published is more important than the module who published it. (e.g, OpenMCT doesn't care who vcid_router plugin is, but it certainly cares about the VCID_COUNT it periodically publishes.)
@@ -39,11 +40,17 @@ class MessageType(Enum):
     def to_tuple(self):
         return (self.name, self.value)
 
+
 class Task_Message():
+
+    @classmethod
+    def name(cls):
+        return cls.__name__
+
     def __init__(self, ID):
         self.ID = ID
         self.result = None
-        self.name = self.__class__.__name__
+        self.name = self.name()
 
     def __repr__(self):
         return str(self.__dict__)
@@ -51,18 +58,77 @@ class Task_Message():
 
 class File_Reassembly_Task(Task_Message):
     """ This task is run automatically with ID 0"""
-    def __init__(self, path):
+    def __init__(self, path, filename, ground_id):
         Task_Message.__init__(self, 0)
         self.path = path
+        self.filename = filename
+        self.ground_id = ground_id
+        self.md5_pass = False
 
-
+    def subset_map(self):
+        a = {"status": self.result['initialize_file_downlink_reply']['status'],
+             "md5_pass": self.md5_pass,
+             "filepath": str(self.path/self.filename)}
+        return a
+        
 class S3_File_Upload_Task(Task_Message):
     """
     Request FileManager to upload local path to S3 bucket.
     If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
     """
-    def __init__(self, ID, bucket, filepath, s3_path):
+    def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_id):
         Task_Message.__init__(self, ID)
         self.bucket = bucket
         self.filepath = filepath
         self.s3_path = s3_path
+        self.ground_id = ground_id
+        self.s3_region = s3_region
+        
+    def canonical_s3_url(self):
+        if self.result: # A result implies an error occured
+            return None
+        a = f"https://{self.bucket}.s3-{self.s3_region}.amazonaws.com/{self.s3_path}"
+        b = {'s3_url': a,
+             's3_region': self.s3_region,
+             's3_bucket': self.bucket,
+             's3_key': str(self.s3_path)}
+        return b
+
+class CSV_to_Influx_Task(Task_Message):
+    def __init__(self, ID, filepath, postprocessor):
+        Task_Message.__init__(self, ID)
+        self.filepath = filepath
+        self.postprocessor = postprocessor
+        self.measurement, self.df = self.postprocessor(filepath)
+
+
+class Tar_Decompress_Task(Task_Message):
+    from pathlib import Path
+    import tarfile
+
+    def __init__(self, ID, filepath, recursive=True):
+        Task_Message.__init__(self, ID)
+        self.filepath = self.Path(filepath)
+        self.recursive = recursive
+        self.extracted_root_path = None
+        self.result = self.process()
+        
+    def process(self):
+        self.untar(self.filepath, self.recursive)
+        root = self.extracted_root_path
+
+        interesting_paths = (set(root.glob("**/*")) -
+                             set(root.glob("**/*.tar.bz2*")))
+        interesting_paths = [i for i in interesting_paths if i.is_file()]
+        self.result = interesting_paths
+        return self.result
+
+    def untar(self, filepath, recursive):
+        new_path = filepath.parent / filepath.name.replace(".tar.bz2", "")
+        if self.extracted_root_path is None:
+            self.extracted_root_path = new_path
+        with self.tarfile.open(filepath, "r:bz2") as tar:
+            tar.extractall(new_path)
+        if recursive:
+            for i in new_path.glob('*.tar.bz2*'):
+                self.untar(i, recursive)
