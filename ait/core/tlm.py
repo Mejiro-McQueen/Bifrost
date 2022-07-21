@@ -122,14 +122,38 @@ class FieldList(collections.Sequence):
         return (
             isinstance(other, collections.Sequence)
             and len(self) == len(other)
-            and all(self[n] == other[n] for n in range(len(self)))
-        )
+            and all([i == j for (i, j) in zip(self, other)])
+            )
 
     def __getitem__(self, key):
         return self._packet._getattr(self._defn.name, self._raw, key)
 
     def __len__(self):
         return self._defn.type.nelems
+
+    def __str__(self):
+        return str(self.canonical_form())
+
+    def canonical_form(self):
+    # Convert to Canonical Form
+        field_name = self._defn.name
+        if all(isinstance(i, str) for i in self):
+            val = ", ".join(self)
+            log.debug(f"{__name__} -> FieldList String => {field_name}: {val}")
+
+        elif "bytes" in field_name or 'md5' in field_name:
+            accum = 0
+            for i in self:
+                accum = (accum << 8) + i
+            val = str(hex(accum))
+            log.debug(f"{__name__} -> FieldList Bytes => {field_name}: {val}")
+
+        elif all(isinstance(i, (float, int)) for i in self):
+            val = [str(i) for i in self]
+            val = ",".join(val)
+            log.debug(f"{__name__} -> FieldList CSV => {field_name}: {val}")
+
+        return val
 
 
 class DerivationDefinition(json.SlotSerializer):
@@ -502,6 +526,19 @@ class Packet:
             or fieldname in self._defn.derivationmap
         )
 
+    def items(self):
+        d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
+        for (k, v) in d.items():
+            yield (k, v)
+
+    def keys(self):
+        for i in self._defn.fieldmap:
+            yield i
+
+    def values(self):
+        for i in [getattr(self, name) for name in self._defn.fieldmap]:
+            yield i
+
     @property
     def nbytes(self):
         """The size of this packet in bytes."""
@@ -521,6 +558,9 @@ class Packet:
         array.
         """
         return self._defn.validate(self, messages)
+
+    def __getitem__(self, k):
+        return PacketContext(self)[k]
 
 
 class PacketContext:
@@ -567,6 +607,7 @@ class PacketDefinition(json.SlotSerializer):
         "ccsds",
         "constants",
         "desc",
+        "opcode",
         "fields",
         "fieldmap",
         "uid",
@@ -629,6 +670,9 @@ class PacketDefinition(json.SlotSerializer):
         for s in PacketDefinition.__slots__:
             setattr(self, s, state.get(s, None))
         self._update_globals()
+
+    def canonical_form(self):
+        return str(self)
 
     def _update_bytes(self, defns, start=0):
         """Updates the 'bytes' field in all FieldDefinition.
@@ -786,7 +830,11 @@ class PacketExpression:
             result = eval(self._code, packet._defn.globals, context)
         except ZeroDivisionError:
             result = None
-
+        except Exception as e:
+            log.error(f"{__name__} -> Got exception {e} \n"
+                      f"{__name__} -> Likely cause is FieldList "
+                      "dntoeu not being supported with a FieldList as a variable.")
+            result = None
         return result
 
     def toJSON(self):  # noqa

@@ -1,3 +1,4 @@
+import sys
 import gevent
 import gevent.socket
 import gevent.server as gs
@@ -28,6 +29,7 @@ class ZMQClient(object):
         **kwargs,
     ):
 
+        self.exit_on_exception = ait.config.get("server.exit_on_exception", False)
         self.context = zmq_context
         # open PUB socket & connect to broker
         self.pub = self.context.socket(zmq.PUB)
@@ -107,12 +109,17 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                 msg = self.sub.recv_multipart()
                 topic, message = utils.decode_message(msg)
                 if topic is None or message is None:
-                    log.error(f"{self} received invalid topic or message. Skipping")
+                    log.error(f"{self} received invalid topic or message {(message, topic)}. Skipping")
                     continue
 
                 log.debug("{} received message from {}".format(self, topic))
-                self.process(message, topic=topic)
-
+                try:
+                    self.process(message, topic=topic)
+                except Exception as e:
+                    log.error(f"encountered uncaught exception: {e} on {self} processing message {message}")
+                    log.error(sys.exc_info())
+                    if self.exit_on_exception:
+                        sys.exit(f"Encountered exception while processing message. Now exiting.")
         except Exception as e:
             log.error(
                 "Exception raised in {} while receiving messages: {}".format(self, e)

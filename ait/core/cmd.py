@@ -204,8 +204,28 @@ class Cmd(object):
         self.args = args
         self._unrecognized = kwargs
 
+    def __str__(self):
+        res = self.defn.name + " " + " ".join([str(a) for a in self.args])
+        return res
+
     def __repr__(self):
-        return self.defn.name + " " + " ".join([str(a) for a in self.args])
+        x = {k.name: str(v) for (k,v) in self.arg_val_map().items()}
+        res = self.defn.name + " -> " + str(x)
+        return res
+
+    def arg_val_map(self):
+        """
+        Map arg definiton to value
+        """
+        vals = {}
+        index = 0
+        for defn in self.defn.argdefns:
+            if defn.fixed:
+                vals[defn] = defn.value
+            else:
+                vals[defn] = self.args[index]
+                index += 1
+        return vals
 
     @property
     def desc(self):
@@ -558,7 +578,7 @@ def YAMLCtor_include(loader, node):  # noqa
     name = os.path.join(os.path.dirname(loader.name), node.value)
     data = None
     with open(name, "r") as f:
-        data = yaml.load(f)
+        data = yaml.load(f, Loader=yaml.Loader)
     return data
 
 
