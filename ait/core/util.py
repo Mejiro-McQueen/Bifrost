@@ -26,6 +26,8 @@ import stat
 import sys
 import time
 import zlib
+import tempfile
+import warnings
 
 import pickle
 
@@ -120,7 +122,7 @@ def check_yaml_timestamps(yaml_file_name, cache_name):
     """
     # If no pickle cache exists return True to make a new one.
     if not os.path.exists(cache_name):
-        log.debug(f'No pickle cache exists, make a new one')
+        log.debug('No pickle cache exists, make a new one')
         return True
     # Has the yaml config file has been modified since the creation of the pickle cache
     if os.path.getmtime(yaml_file_name) > os.path.getmtime(cache_name):
@@ -137,7 +139,7 @@ def check_yaml_timestamps(yaml_file_name, cache_name):
                         os.path.join(dir_name, line.strip().split(" ")[2]), cache_name)
                     if check:
                         return True
-        except RecursionError as e:   # TODO Python 3.7 does not catch this error.
+        except RecursionError as e:
             print(f'ERROR: {e}: Infinite loop: check that yaml config files are not looping '
                   f'back and forth to one another thought the "!include" statements.')
     return False
@@ -499,6 +501,55 @@ def listAllFiles(directory, suffix=None, abspath=False):  # noqa
     return files
 
 
+class TestFile:
+    """TestFile
+
+    TestFile is a Python Context Manager for quickly creating test
+    data files that delete when a test completes, either successfully
+    or unsuccessfully.
+
+    Example:
+
+        with TestFile(data) as filename:
+            # filename (likely something like '/var/tmp/tmp.1.uNqbVJ') now
+            # contains data.
+            assert load(filename)
+
+    Whether the above assert passes or throws AssertionError, filename
+    will be deleted.
+    """
+
+    def __init__(self, data, options):
+        """
+        Creates a new TestFile and writes data to a temporary file.
+
+        Parameters:
+            data: text/binary
+                the data to be written to the temporary file
+
+            options: str
+                file operations for reading, writing, concatenating the temporary file
+        """
+        self._filename = None
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self._tfile = tempfile.NamedTemporaryFile(mode=options)
+            self._filename = self._tfile.name
+
+        with open(self._filename, "w") as output:
+            output.write(data)
+
+    def __enter__(self):
+        """Enter the runtime context and return filename."""
+        return self._filename
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Exit the runtime context and delete filename."""
+        self._tfile.close()
+        self._filename = None
+
+
 class YAMLValidationError(Exception):
     def __init__(self, arg):
         # Set some exception infomation
@@ -513,4 +564,3 @@ class YAMLError(Exception):
         self.message = arg
 
         log.error(self.message)
-
