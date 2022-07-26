@@ -538,8 +538,8 @@ class AITOpenMctPlugin(Plugin,
                     self._process_telem_msg((packet_metadata, tlm_packet))
                 else:
                     log.error("OpenMCT Plugin received telemetry message with unknown "
-                          f"packet id {pkt_id}.  Skipping input...")
-       # try:
+                              f"packet id {pkt_id}.  Skipping input...")
+                    
         if topic == "log_stream":
         # log stream special case
             message_type = MessageType.LOG
@@ -548,7 +548,7 @@ class AITOpenMctPlugin(Plugin,
             message_type, message = messages_input
 
         if message_type is MessageType.REAL_TIME_TELEMETRY:
-                dispatch_telem_msg(message)
+            dispatch_telem_msg(message)
         elif message_type is MessageType.LOG:
             #self._process_log_msg(message)
             pass
@@ -1147,8 +1147,8 @@ class AITOpenMctPlugin(Plugin,
                 subscribed_pkt['metadata'] = metadata
                 pkt_mesg = json.dumps(subscribed_pkt)#,
                                       #default=self.datetime_jsonifier)
-                log.error("Sending realtime telemetry web-socket msg "
-                                 f"to websocket {mws.id}: {pkt_mesg}")
+                log.debug("Sending realtime telemetry web-socket msg "
+                          f"to websocket {mws.id}: {pkt_mesg}")
                 self.managed_web_socket_send(mws, pkt_mesg)
                 return True
 

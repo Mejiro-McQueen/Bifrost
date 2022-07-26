@@ -1,4 +1,5 @@
 from enum import Enum
+from ait.core import log
 
 
 class MessageType(Enum):
@@ -94,6 +95,7 @@ class S3_File_Upload_Task(Task_Message):
              's3_key': str(self.s3_path)}
         return b
 
+
 class CSV_to_Influx_Task(Task_Message):
     def __init__(self, ID, filepath, postprocessor):
         Task_Message.__init__(self, ID)
@@ -105,30 +107,25 @@ class CSV_to_Influx_Task(Task_Message):
 class Tar_Decompress_Task(Task_Message):
     from pathlib import Path
     import tarfile
+    import bz2
+    import io
 
-    def __init__(self, ID, filepath, recursive=True):
+    def __init__(self, ID, filepath, recursive=False):
         Task_Message.__init__(self, ID)
         self.filepath = self.Path(filepath)
-        self.recursive = recursive
-        self.extracted_root_path = None
-        self.result = self.process()
-        
-    def process(self):
-        self.untar(self.filepath, self.recursive)
-        root = self.extracted_root_path
+        self.result = []
+        self.process()
 
-        interesting_paths = (set(root.glob("**/*")) -
-                             set(root.glob("**/*.tar.bz2*")))
-        interesting_paths = [i for i in interesting_paths if i.is_file()]
-        self.result = interesting_paths
+    def process(self):
+        self.decompress(self.filepath)
         return self.result
 
-    def untar(self, filepath, recursive):
-        new_path = filepath.parent / filepath.name.replace(".tar.bz2", "")
-        if self.extracted_root_path is None:
-            self.extracted_root_path = new_path
-        with self.tarfile.open(filepath, "r:bz2") as tar:
-            tar.extractall(new_path)
-        if recursive:
-            for i in new_path.glob('*.tar.bz2*'):
-                self.untar(i, recursive)
+    def decompress(self, filepath):
+        with self.tarfile.open(filepath) as tar:
+            tar.extractall(filepath.parent)
+
+        for i in filepath.parent.glob('*.bz2'):
+            with self.bz2.open(i) as f:
+                with open(i.with_suffix(''), 'wb') as g:
+                    g.write(f.read())
+                    self.result.append(i.with_suffix(''))
