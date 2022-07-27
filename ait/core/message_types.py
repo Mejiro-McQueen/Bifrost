@@ -58,9 +58,9 @@ class Task_Message():
 
 
 class File_Reassembly_Task(Task_Message):
-    """ This task is run automatically with ID 0"""
+    """ This task is run automatically with ID = downlink ID"""
     def __init__(self, path, filename, ground_id):
-        Task_Message.__init__(self, 0)
+        Task_Message.__init__(self, ground_id)
         self.path = path
         self.filename = filename
         self.ground_id = ground_id
@@ -85,16 +85,17 @@ class S3_File_Upload_Task(Task_Message):
         self.s3_path = s3_path
         self.ground_id = ground_id
         self.s3_region = s3_region
-        
+
     def canonical_s3_url(self):
-        if self.result: # A result implies an error occured
+        if self.result is True:
+            a = f"https://{self.bucket}.s3-{self.s3_region}.amazonaws.com/{self.s3_path}"
+            b = {'s3_url': a,
+                 's3_region': self.s3_region,
+                 's3_bucket': self.bucket,
+                 's3_key': str(self.s3_path)}
+            return b
+        else:
             return None
-        a = f"https://{self.bucket}.s3-{self.s3_region}.amazonaws.com/{self.s3_path}"
-        b = {'s3_url': a,
-             's3_region': self.s3_region,
-             's3_bucket': self.bucket,
-             's3_key': str(self.s3_path)}
-        return b
 
 
 class CSV_to_Influx_Task(Task_Message):
