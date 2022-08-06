@@ -245,12 +245,12 @@ class PluginsProcess(object):
         Args:
             namespace: AIT process namespace
         """
-        plugin_proc_name = f"plugin-process.{namespace}"
+        plugin_proc_name = f"ait-server.{namespace}"
 
         updated_title = f"ait-server-{plugin_proc_name}"
         orig_title = setproctitle.getproctitle()
         if orig_title is not None:
-            updated_title = f"{orig_title} {plugin_proc_name}"
+            updated_title = f"{plugin_proc_name}"
 
         setproctitle.setproctitle(updated_title)
 
