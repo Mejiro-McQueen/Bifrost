@@ -3,7 +3,9 @@ import gevent.monkey
 
 from importlib import import_module
 import sys
+import os
 import traceback
+import atexit
 
 import ait.core.server
 from .stream import PortInputStream, ZMQStream, PortOutputStream
@@ -12,6 +14,7 @@ from .broker import Broker
 from .plugin import PluginType, Plugin, PluginConfig
 from .process import PluginsProcess
 from ait.core import log, cfg
+
 
 gevent.monkey.patch_all()
 
@@ -52,6 +55,7 @@ class Server(object):
             + self.broker.inbound_streams
             + self.broker.outbound_streams
         )
+        atexit.register(self.shutdown)
 
     def wait(self):
         """
@@ -495,3 +499,8 @@ class Server(object):
                                                            zmq_args)
 
         return plugin_config
+
+    def shutdown(self):
+        for i in self.plugin_process_dict.values():
+            i.abort()
+        os._exit(0)
