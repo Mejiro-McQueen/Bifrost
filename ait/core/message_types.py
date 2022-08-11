@@ -37,6 +37,12 @@ class MessageType(Enum):
     FILE_DOWNLINK_RESULT = "Result of a File Downlink Reassembly Task"
     FILE_DOWNLINK_UPDATE = "Result of a File Dowlink Update Task"
     TASK_S3_UPLOAD_RESULT = "Result of an S3 File Upload Task"
+    PANIC = "Something has thrown an exception"
+    CL_LIST = 'List command loader scripts, message is path or "" '
+    CL_SHOW = 'Get contents of command loader script or uplink info, message is path to command loader script or uplink directory'
+    CL_EXECUTE = 'Have command loader execute a command from the dicionary, message is a command or uplink directory'
+    CL_VALIDATE = 'Have command loader verify a script, command, or uplink path'
+    CL_RESULT = 'Contains result of Command Loader action {(action, argument): (BOOL, [Errors])}'
 
     def to_tuple(self):
         return (self.name, self.value)

@@ -12,7 +12,7 @@ import socket
 import ait.core
 from ait.core import log
 import ait.core.server.utils as utils
-
+from ait.core.message_types import MessageType
 
 class ZMQClient(object):
     """
@@ -118,6 +118,9 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                 except Exception as e:
                     log.error(f"encountered uncaught exception: {e} on {self} processing message {message}")
                     log.error(sys.exc_info())
+                    if e is None:
+                        e = "Unknown"
+                    self.publish(e, MessageType.PANIC)
                     if self.exit_on_exception:
                         sys.exit(f"Encountered exception while processing message. Now exiting.")
         except Exception as e:
