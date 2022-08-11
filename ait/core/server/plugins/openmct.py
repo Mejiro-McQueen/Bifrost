@@ -1299,6 +1299,10 @@ class AITOpenMctPlugin(Plugin,
         elif directive == 'unsubscribe':
             self.dbg_message(f"Unsubscribing websocket {mws.id} from: {msg_parts[1]}")
             mws.unsubscribe_field(msg_parts[1])
+        elif directive in MessageType._member_names_:
+            msg = " ".join(msg_parts[1:]).strip()
+            log.info(f"Got MessageType {msg}!")
+            self.publish(msg, directive)
         else:
             self.dbg_message(f"Unrecognized web-socket message: {message}")
 
