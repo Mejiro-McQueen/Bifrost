@@ -448,7 +448,7 @@ class AITOpenMctPlugin(Plugin,
         Graffiti.Graphable.__init__(self)
 
     def graffiti(self):
-        variable_messages_inputs = [ MessageType[i] for i in self.inputs if i in MessageType.__members__ ]
+        variable_messages_inputs = [MessageType[i] for i in self.inputs if i in MessageType._member_names_]
         variable_messages_labels = [(i.name, i.value) for i in variable_messages_inputs]
         telemetry_inputs = [i for i in self.inputs if i not in MessageType.__members__]
         telemetry_messages_labels = [(i, "Telemetry") for i in telemetry_inputs]
@@ -529,12 +529,13 @@ class AITOpenMctPlugin(Plugin,
 
         return dbconn
 
-    def process(self, messages_input, topic=None):
+    def process(self, message, topic=None):
         def dispatch_telem_msg(packet_metadata_list):
             for packet_metadata in packet_metadata_list:
                 pkt_id = packet_metadata['packet_uid']
                 pkt_data = packet_metadata['user_data_field']
                 packet_def = self._get_tlm_packet_def(pkt_id)
+                #log.info(f"{pkt_id}, {pkt_data}")
                 if packet_def:
                     packet_def = self._uidToPktDefMap[pkt_id]
                     tlm_packet = tlm.Packet(packet_def, data=bytearray(pkt_data))
@@ -542,27 +543,22 @@ class AITOpenMctPlugin(Plugin,
                 else:
                     log.error("OpenMCT Plugin received telemetry message with unknown "
                               f"packet id {pkt_id}.  Skipping input...")
-                    
-        if topic == "log_stream":
-        # log stream special case
-            message_type = MessageType.LOG
-            message = messages_input
-        else:
-            message_type, message = messages_input
 
-        if message_type is MessageType.REAL_TIME_TELEMETRY:
+        if topic == "log_stream":
+          pass
+        elif topic == MessageType.REAL_TIME_TELEMETRY.name:
             dispatch_telem_msg(message)
-        elif message_type is MessageType.LOG:
-            #self._process_log_msg(message)
+        elif topic is MessageType.LOG.name:
+            #  self._process_log_msg(message)
             pass
-        elif isinstance(message_type, MessageType):
-            message = {message_type.name: message}
-            if message_type is MessageType.FILE_DOWNLINK_RESULT or message_type is MessageType.FILE_DOWNLINK_UPDATE:
+        elif topic in MessageType._member_names_:
+            message = {topic: message}
+            if topic == MessageType.FILE_DOWNLINK_RESULT.name or topic == MessageType.FILE_DOWNLINK_UPDATE.name:
                 self._process_downlink_update_msg(message)
             else:
                 self._process_variable_msg(message)
         else:
-            log.error(f"Unknown message_type: {message_type} for {message}")
+            log.error(f"Unknown topic: {topic} for {message}")
             
     def _process_variable_msg(self, message):
         self._varMsgQueue.append(message)
@@ -1301,7 +1297,7 @@ class AITOpenMctPlugin(Plugin,
             mws.unsubscribe_field(msg_parts[1])
         elif directive in MessageType._member_names_:
             msg = " ".join(msg_parts[1:]).strip()
-            log.info(f"Got MessageType {msg}!")
+            #log.info(f"Got MessageType {msg}!")
             self.publish(msg, directive)
         else:
             self.dbg_message(f"Unrecognized web-socket message: {message}")
