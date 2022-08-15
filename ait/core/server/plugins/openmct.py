@@ -50,14 +50,15 @@ class ManagedWebSocket():
     """
     A data structure to maintain state for OpenMCT websockets
     """
-    idCounter = 0  # to assign unique ids
+    id_counter = 0  # to assign unique ids
 
     PACKET_ID_WILDCARD = "*"
 
     def __init__(self, web_socket, client_ip=None,
                  subscribe_all_packets=False,
                  subscribe_all_fields=False,
-                 variable_messages=False):
+                 variable_messages=False,
+                 downlink_updates=False):
         self.web_socket = web_socket
         self.client_ip = client_ip
         self._subscribed_dict = dict()  # Dict from packetId to list of fieldIds
@@ -66,12 +67,13 @@ class ManagedWebSocket():
         self.subscribe_all_packets = subscribe_all_packets
         self.subscribe_all_fields = subscribe_all_fields
         self.variable_messages = variable_messages
+        self.downlink_updates = downlink_updates
         self.id = ManagedWebSocket._generate_id()
 
     @staticmethod
     def _generate_id():
-        tmp_id = f"{ManagedWebSocket.idCounter}/{id(gevent.getcurrent())}"
-        ManagedWebSocket.idCounter += 1
+        tmp_id = f"{ManagedWebSocket.id_counter}/{id(gevent.getcurrent())}"
+        ManagedWebSocket.id_counter += 1
         return tmp_id
 
     def subscribe_field(self, openmct_field_id):
@@ -422,6 +424,7 @@ class AITOpenMctPlugin(Plugin,
         self._tlmQueue = api.GeventDeque(maxlen=100)
 
         self._varMsgQueue = api.GeventDeque(maxlen=100)
+        self._downlinkMsgQueue = api.GeventDeque(maxlen=100)
         
         # Load AIT tlm dict and create OpenMCT format of it
         self._aitTlmDict = tlm.getDefaultDict()
@@ -439,7 +442,7 @@ class AITOpenMctPlugin(Plugin,
         # Spawn greenlets to poll telemetry
         self.tlm_poll_greenlet = Greenlet.spawn(self.poll_telemetry_periodically)
         self.varMsg_poll_greenlet = Greenlet.spawn(self.poll_variable_messages_periodically)
-        
+        self.downlinkMsg_poll_greenlet = Greenlet.spawn(self.poll_downlink_messages_periodically)
         gevent.spawn(self.init)
 
         Graffiti.Graphable.__init__(self)
@@ -538,8 +541,8 @@ class AITOpenMctPlugin(Plugin,
                     self._process_telem_msg((packet_metadata, tlm_packet))
                 else:
                     log.error("OpenMCT Plugin received telemetry message with unknown "
-                          f"packet id {pkt_id}.  Skipping input...")
-       # try:
+                              f"packet id {pkt_id}.  Skipping input...")
+                    
         if topic == "log_stream":
         # log stream special case
             message_type = MessageType.LOG
@@ -548,19 +551,25 @@ class AITOpenMctPlugin(Plugin,
             message_type, message = messages_input
 
         if message_type is MessageType.REAL_TIME_TELEMETRY:
-                dispatch_telem_msg(message)
+            dispatch_telem_msg(message)
         elif message_type is MessageType.LOG:
             #self._process_log_msg(message)
             pass
         elif isinstance(message_type, MessageType):
             message = {message_type.name: message}
-            self._process_variable_msg(message)
+            if message_type is MessageType.FILE_DOWNLINK_RESULT or message_type is MessageType.FILE_DOWNLINK_UPDATE:
+                self._process_downlink_update_msg(message)
+            else:
+                self._process_variable_msg(message)
         else:
             log.error(f"Unknown message_type: {message_type} for {message}")
             
     def _process_variable_msg(self, message):
         self._varMsgQueue.append(message)
 
+    def _process_downlink_update_msg(self, message):
+        self._downlinkMsgQueue.append(message)
+        
     def _process_telem_msg(self, tlm_packet):
         """
         Places tlm_packet in telem queue
@@ -747,6 +756,24 @@ class AITOpenMctPlugin(Plugin,
 
         if websocket and not websocket.closed:
             mws = ManagedWebSocket(websocket, client_ip, variable_messages=True)
+            self.manage_web_socket(mws)
+
+    def get_downlink_update_messages(self):
+        websocket = bottle.request.environ.get("wsgi.websocket")
+
+        if not websocket:
+            bottle.abort(400, "Expected WebSocket request.")
+            return
+
+        req_env = bottle.request.environ
+        client_ip = (
+            req_env.get("HTTP_X_FORWARDED_FOR")
+            or req_env.get("REMOTE_ADDR")
+            or "(unknown)"
+        )
+
+        if websocket and not websocket.closed:
+            mws = ManagedWebSocket(websocket, client_ip, downlink_updates=True)
             self.manage_web_socket(mws)
         
     def get_realtime_tlm(self):
@@ -1049,11 +1076,31 @@ class AITOpenMctPlugin(Plugin,
             if not res:
                 gsleep(AITOpenMctPlugin.DEFAULT_TELEM_CHECK_SLEEP_SECS)
 
+    def poll_downlink_messages_periodically(self):
+        while True:
+            res = self.poll_downlink_messages()
+            if not res:
+                gsleep(AITOpenMctPlugin.DEFAULT_TELEM_CHECK_SLEEP_SECS)
+
     def poll_variable_messages(self):
         if self._varMsgQueue:
             msg = self._varMsgQueue.popleft(timeout=self.DEFAULT_TELEM_QUEUE_TIMEOUT_SECS)
-            msg = json.dumps(msg)
+            try:
+                msg = json.dumps(msg)
+            except Exception as e:
+                log.error(f"Error: {msg} {e}")
             self.broadcast_variable_message(msg)
+            return True
+        return False
+
+    def poll_downlink_messages(self):
+        if self._downlinkMsgQueue:
+            msg = self._downlinkMsgQueue.popleft(timeout=self.DEFAULT_TELEM_QUEUE_TIMEOUT_SECS)
+            try:
+                msg = json.dumps(msg)
+            except Exception as e:
+                log.error(f"Error: {msg} {e}")
+            self.broadcast_downlink_update_message(msg)
             return True
         return False
     
@@ -1113,6 +1160,11 @@ class AITOpenMctPlugin(Plugin,
             if mws.variable_messages:
                 self.managed_web_socket_send(mws, message)
 
+    def broadcast_downlink_update_message(self, message):
+        for mws in self._socket_set:
+            if mws.downlink_updates:
+                self.managed_web_socket_send(mws, message)
+
     def broadcast_message(self, message):
         """
         Broadcast OpenMCT packet to web-socket clients
@@ -1143,8 +1195,8 @@ class AITOpenMctPlugin(Plugin,
                 subscribed_pkt['metadata'] = metadata
                 pkt_mesg = json.dumps(subscribed_pkt)#,
                                       #default=self.datetime_jsonifier)
-                log.error("Sending realtime telemetry web-socket msg "
-                                 f"to websocket {mws.id}: {pkt_mesg}")
+                log.debug("Sending realtime telemetry web-socket msg "
+                          f"to websocket {mws.id}: {pkt_mesg}")
                 self.managed_web_socket_send(mws, pkt_mesg)
                 return True
 
@@ -1269,6 +1321,8 @@ class AITOpenMctPlugin(Plugin,
         self._app.route("/tlm/history/<mct_pkt_id>", callback=self.get_historical_tlm)
 
         self._app.route("/variable_messages", callback=self.get_variable_messages)
+
+        self._app.route("/downlink_updates", callback=self.get_downlink_update_messages)
 
         # Enable CORS via headers
         self._app.add_hook("after_request", self._cors_headers_hook)

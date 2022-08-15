@@ -289,10 +289,12 @@ class InfluxDBBackend(GenericBackend):
 
         self._conn = self._backend.InfluxDBClient(host, port, un, pw)
 
+        self.pandas_client = self._backend.DataFrameClient(host, port, un, pw)
         if dbname not in [v["name"] for v in self._conn.get_list_database()]:
             self.create(database=dbname)
 
         self._conn.switch_database(dbname)
+        self.pandas_client.switch_database(dbname)
 
     def create(self, **kwargs):
         """Create a database in a connected InfluxDB instance

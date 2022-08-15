@@ -354,9 +354,12 @@ class FieldDefinition(json.SlotSerializer):
         if self.shift > 0:
             value >>= self.shift
 
+        val = value
         if not raw and self.enum is not None:
-            value = self.enum.get(value, value)
-
+            value = self.enum.get(val)
+            if value is None:
+                value = f"UNKNOWN_ENUM_{str(val)}"
+                log.error(f"Encountered unknown enum {val} in Field: {self.title}")
         return value
 
     def encode(self, value):
