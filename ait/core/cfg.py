@@ -174,12 +174,12 @@ def load_yaml(filename=None, data=None):
 
     try:
         if filename:
-            data = open(filename, "rt")
+            with open(filename, 'rt') as f:
+                # optionally: https://pypi.org/project/envyaml/, but requires deleting a lot of lines
+                data = os.path.expandvars(f.read())
 
         config = yaml.load(data, Loader=yaml.Loader)
 
-        if isinstance(data, IOBase):
-            data.close()
     except IOError as e:
         msg = 'Could not read AIT configuration file "%s": %s'
         log.error(msg, filename, str(e))
