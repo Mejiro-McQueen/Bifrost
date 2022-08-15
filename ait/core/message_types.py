@@ -18,8 +18,7 @@ class MessageType(Enum):
 
     USAGE:
         Send a message:
-          msg_type = MessageType.VCID_COUNT
-          self.publish((msg_type, packet_metadata_list), msg_type.name)
+          self.publish(packet_metadata_list, MessageType.VCID_COUNT.name)
     """
     REAL_TIME_TELEMETRY = "realtime telemetry packets and metadata"
     STORED_TELEMETRY = "stored telemetry packets and metadata"
@@ -43,7 +42,8 @@ class MessageType(Enum):
     CL_EXECUTE = 'Have command loader execute a command from the dicionary, message is a command or uplink directory'
     CL_VALIDATE = 'Have command loader verify a script, command, or uplink path'
     CL_RESULT = 'Contains result of Command Loader action {(action, argument): (BOOL, [Errors])}'
-
+    FM_TASK_DONE = 'Generic task done for File Manager'
+    
     def to_tuple(self):
         return (self.name, self.value)
 
