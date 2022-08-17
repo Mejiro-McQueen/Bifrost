@@ -13,6 +13,7 @@ import ait.core
 from ait.core import log
 import ait.core.server.utils as utils
 from ait.core.message_types import MessageType
+import traceback
 
 class ZMQClient(object):
     """
@@ -117,7 +118,7 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                     self.process(message, topic=topic)
                 except Exception as e:
                     log.error(f"encountered uncaught exception: {e} on {self} processing message {message}")
-                    log.error(sys.exc_info())
+                    log.error(traceback.format_exc())
                     if e is None:
                         e = "Unknown"
                     self.publish(f"Error: {e}", MessageType.PANIC.name)

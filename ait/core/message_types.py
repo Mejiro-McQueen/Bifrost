@@ -1,5 +1,9 @@
 from enum import Enum
 from ait.core import log
+from pathlib import Path
+import tarfile
+import io
+import bz2
 
 
 class MessageType(Enum):
@@ -49,10 +53,11 @@ class Task_Message():
     def name(cls):
         return cls.__name__
 
-    def __init__(self, ID):
+    def __init__(self, ID, filepath):
         self.ID = ID
         self.result = None
         self.name = self.name()
+        self.filepath = Path(filepath)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -60,17 +65,17 @@ class Task_Message():
 
 class File_Reassembly_Task(Task_Message):
     """ This task is run automatically with ID = downlink ID"""
-    def __init__(self, path, filename, ground_id):
-        Task_Message.__init__(self, ground_id)
-        self.path = path
-        self.filename = filename
+    def __init__(self, filepath, ground_id, SCID=0):
+        Task_Message.__init__(self, ground_id, filepath)
+        self.filename = self.filepath.name
         self.ground_id = ground_id
         self.md5_pass = False
+        self.SCID = SCID
 
     def subset_map(self):
         a = {"status": self.result['initialize_file_downlink_reply']['status'],
              "md5_pass": self.md5_pass,
-             "filepath": str(self.path/self.filename)}
+             "filepath": str(self.filepath.parent/self.filename)}
         return a
 
 
@@ -80,9 +85,8 @@ class S3_File_Upload_Task(Task_Message):
     If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
     """
     def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_id):
-        Task_Message.__init__(self, ID)
+        Task_Message.__init__(self, ID, filepath)
         self.bucket = bucket
-        self.filepath = filepath
         self.s3_path = s3_path
         self.ground_id = ground_id
         self.s3_region = s3_region
@@ -101,40 +105,46 @@ class S3_File_Upload_Task(Task_Message):
 
 class CSV_to_Influx_Task(Task_Message):
     def __init__(self, ID, filepath, postprocessor):
-        Task_Message.__init__(self, ID)
-        self.filepath = filepath
+        Task_Message.__init__(self, ID, filepath)
         self.postprocessor = postprocessor
         self.measurement, self.df = self.postprocessor(filepath)
 
 
 class Tar_Decompress_Task(Task_Message):
-    from pathlib import Path
-    import tarfile
-    import bz2
-    import io
 
-    def __init__(self, ID, filepath, recursive=False):
-        Task_Message.__init__(self, ID)
-        self.filepath = self.Path(filepath)
-        self.result = []
+    def __init__(self, ID, filepath):
+        Task_Message.__init__(self, ID, filepath)
+        self.result = None
         self.process()
 
     def process(self):
-        self.decompress(self.filepath)
+        self.decompress()
         return self.result
 
-    def decompress(self, filepath):
-        try:
-            with self.tarfile.open(filepath) as tar:
-                tar.extractall(filepath.parent)
-        except Exception as e:
-            log.error(f"Could not untar {filepath}: {e}")
+    def decompress(self):
+        with tarfile.open(self.filepath) as tar:
+            try:
+                tar.extractall(self.filepath.parent)
+                self.result = self.filepath.parent
+            except Exception as e:
+                log.warn(f"{self.filepath} could not be untarred: {e} ")
 
-        try:
-            for i in filepath.parent.glob('*.bz2'):
-                with self.bz2.open(i) as f:
-                    with open(i.with_suffix(''), 'wb') as g:
-                        g.write(f.read())
-                        self.result.append(i.with_suffix(''))
-        except Exception as e:
-            log.error(f"could not uncompress {filepath}: {e}")
+
+class Bz2_Decompress_Task(Task_Message):
+    def __init__(self, ID, filepath):
+        Task_Message.__init__(self, ID, filepath)
+        self.result = None
+        self.process()
+
+    def process(self):
+        self.decompress()
+        return self.result
+
+    def decompress(self):
+        with bz2.open(self.filepath) as f:
+            try:
+                with open(self.filepath.with_suffix(''), 'wb') as g:
+                    g.write(f.read())
+                    self.result = self.filepath.with_suffix('')
+            except Exception as e:
+                log.warn(f"{self.filepath} could not be decompressed: {e}")
