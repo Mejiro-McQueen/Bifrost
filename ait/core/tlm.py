@@ -342,10 +342,18 @@ class FieldDefinition(json.SlotSerializer):
         FieldDefinition is an ArrayType), then only the element(s) at
         the specified position(s) will be decoded.
         """
-        if index is not None and isinstance(self.type, dtype.ArrayType):
-            value = self.type.decode(bytes[self.slice()], index, raw)
-        else:
-            value = self.type.decode(bytes[self.slice()], raw)
+        try:
+            if index is not None and isinstance(self.type, dtype.ArrayType):
+                value = self.type.decode(bytes[self.slice()], index, raw)
+            else:
+                value = self.type.decode(bytes[self.slice()], raw)
+        except IndexError as e:
+            raise e
+        except struct.error as e:
+            raise e
+        except Exception as e:
+            log.error(e)
+            raise e
 
         # Apply bit mask if needed
         if self.mask is not None:
@@ -359,7 +367,8 @@ class FieldDefinition(json.SlotSerializer):
             value = self.enum.get(val)
             if value is None:
                 value = f"UNKNOWN_ENUM_{str(val)}"
-                log.error(f"Encountered unknown enum {val} in Field: {self.title}")
+                log.warn(f"Encountered unknown enum {val} in Field: {self.title}, abandoning packet")
+                raise ValueError(value)
         return value
 
     def encode(self, value):
@@ -444,7 +453,11 @@ class Packet:
 
     def __getattr__(self, fieldname):
         """Returns the value of the given packet field name."""
-        return self._getattr(fieldname)
+        try:
+            res = self._getattr(fieldname)
+        except Exception as e:
+            raise e
+        return res
 
     def __setattr__(self, fieldname, value):
         """Sets the given packet field name to value."""
@@ -508,31 +521,53 @@ class Packet:
             if isinstance(defn.type, dtype.ArrayType) and index is None:
                 return createFieldList(self, defn, raw)  # noqa
 
-            if defn.when is None or defn.when.eval(self):
-                if isinstance(defn, DerivationDefinition):
-                    value = defn.equation.eval(self)
-                elif raw or (defn.dntoeu is None and defn.expr is None):
-                    value = defn.decode(self._data, raw, index)
-                elif defn.dntoeu is not None:
-                    value = defn.dntoeu.eval(self)
-                elif defn.expr is not None:
-                    value = defn.expr.eval(self)
+            try:
+                if defn.when is None or defn.when.eval(self):
+                    if isinstance(defn, DerivationDefinition):
+                        value = defn.equation.eval(self)
+                    elif raw or (defn.dntoeu is None and defn.expr is None):
+                        value = defn.decode(self._data, raw, index)
+                    elif defn.dntoeu is not None:
+                        value = defn.dntoeu.eval(self)
+                    elif defn.expr is not None:
+                        value = defn.expr.eval(self)
+            except IndexError as e:
+                raise e
+            except struct.error as e:
+                raise e
+            except Exception as e:
+                log.warn(f"error applying dntoeu: {e}")
+                raise e
 
         return value
 
     def _hasattr(self, fieldname):
         """Returns True if this packet contains fieldname, False otherwise."""
         special = "history", "raw"
-        return (
-            fieldname in special
-            or fieldname in self._defn.fieldmap
-            or fieldname in self._defn.derivationmap
-        )
+        try:
+            return (
+                fieldname in special
+                or fieldname in self._defn.fieldmap
+                or fieldname in self._defn.derivationmap
+            )
+        except Exception as e:
+            log.error(e)
+            raise e
 
     def items(self):
-        d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
-        for (k, v) in d.items():
-            yield (k, v)
+        try:
+            d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
+            for (k, v) in d.items():
+                yield (k, v)
+        except struct.error as e:
+            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            return {}
+        except ValueError as e:
+            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            return {}
+        except Exception as e:
+            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            return {}
 
     def keys(self):
         for i in self._defn.fieldmap:
@@ -833,11 +868,13 @@ class PacketExpression:
             result = eval(self._code, packet._defn.globals, context)
         except ZeroDivisionError:
             result = None
+        except struct.error as e:
+            raise e
         except Exception as e:
-            log.error(f"{__name__} -> Got exception {e} \n"
-                      f"{__name__} -> Likely cause is FieldList "
+            log.error(f"Got exception {e} "
+                      f"Likely cause is FieldList "
                       "dntoeu not being supported with a FieldList as a variable.")
-            result = None
+            raise e
         return result
 
     def toJSON(self):  # noqa

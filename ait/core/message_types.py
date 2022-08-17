@@ -37,6 +37,7 @@ class MessageType(Enum):
     FILE_DOWNLINK_RESULT = "Result of a File Downlink Reassembly Task"
     FILE_DOWNLINK_UPDATE = "Result of a File Dowlink Update Task"
     TASK_S3_UPLOAD_RESULT = "Result of an S3 File Upload Task"
+    PANIC = "Something has thrown an exception"
 
     def to_tuple(self):
         return (self.name, self.value)
@@ -87,7 +88,7 @@ class S3_File_Upload_Task(Task_Message):
         self.s3_region = s3_region
 
     def canonical_s3_url(self):
-        if self.result is True:
+        if not self.result: # S3 upload returns none when successful, contains an exception otherwise
             a = f"https://{self.bucket}.s3-{self.s3_region}.amazonaws.com/{self.s3_path}"
             b = {'s3_url': a,
                  's3_region': self.s3_region,
@@ -123,11 +124,17 @@ class Tar_Decompress_Task(Task_Message):
         return self.result
 
     def decompress(self, filepath):
-        with self.tarfile.open(filepath) as tar:
-            tar.extractall(filepath.parent)
+        try:
+            with self.tarfile.open(filepath) as tar:
+                tar.extractall(filepath.parent)
+        except Exception as e:
+            log.error(f"Could not untar {filepath}: {e}")
 
-        for i in filepath.parent.glob('*.bz2'):
-            with self.bz2.open(i) as f:
-                with open(i.with_suffix(''), 'wb') as g:
-                    g.write(f.read())
-                    self.result.append(i.with_suffix(''))
+        try:
+            for i in filepath.parent.glob('*.bz2'):
+                with self.bz2.open(i) as f:
+                    with open(i.with_suffix(''), 'wb') as g:
+                        g.write(f.read())
+                        self.result.append(i.with_suffix(''))
+        except Exception as e:
+            log.error(f"could not uncompress {filepath}: {e}")
