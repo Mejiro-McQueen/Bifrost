@@ -1300,7 +1300,7 @@ class AITOpenMctPlugin(Plugin,
             #log.info(f"Got MessageType {msg}!")
             self.publish(msg, directive)
         else:
-            self.dbg_message(f"Unrecognized web-socket message: {message}")
+            self.warn(f"Unexpected web-socket message: {message}")         
 
     # ---------------------------------------------------------------------
     # Routing rules

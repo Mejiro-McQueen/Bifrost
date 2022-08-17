@@ -120,7 +120,7 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                     log.error(sys.exc_info())
                     if e is None:
                         e = "Unknown"
-                    self.publish(e, MessageType.PANIC)
+                    self.publish(f"Error: {e}", MessageType.PANIC.name)
                     if self.exit_on_exception:
                         sys.exit(f"Encountered exception while processing message. Now exiting.")
         except Exception as e:
