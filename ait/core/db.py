@@ -385,7 +385,7 @@ class InfluxDBBackend(GenericBackend):
             fields[field_name] = val
 
         if len(fields) == 0:
-            log.error("No fields present to insert into Influx")
+            log.debug("No fields present to insert into Influx")
             return
 
         tags = kwargs.get("tags", {})
