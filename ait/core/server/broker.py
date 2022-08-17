@@ -41,15 +41,7 @@ class Broker(gevent.Greenlet):
         log.info("Starting broker...")
         while True:
             gevent.sleep(0)
-            socks = dict(self.poller.poll())
-
-            if socks.get(self.frontend) == zmq.POLLIN:
-                message = self.frontend.recv_multipart()
-                self.backend.send_multipart(message)
-
-            if socks.get(self.backend) == zmq.POLLIN:
-                message = self.backend.recv_multipart()
-                self.frontend.send_multipart(message)
+            zmq.proxy(self.frontend, self.backend)
 
     def _setup_proxy(self):
         self.frontend = self.context.socket(zmq.XSUB)
@@ -57,10 +49,6 @@ class Broker(gevent.Greenlet):
 
         self.backend = self.context.socket(zmq.XPUB)
         self.backend.bind(self.XPUB_URL)
-
-        self.poller = zmq.Poller()
-        self.poller.register(self.frontend, zmq.POLLIN)
-        self.poller.register(self.backend, zmq.POLLIN)
 
     def _subscribe_all(self):
         """
