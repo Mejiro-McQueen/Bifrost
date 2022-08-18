@@ -2,15 +2,14 @@ from enum import Enum
 from ait.core import log
 from pathlib import Path
 import tarfile
-import io
 import bz2
-
+from abc import ABC, abstractmethod
 
 class MessageType(Enum):
     """
     Use these types to annotate pub sub messages for modules that:
       1. Publishes multiple types of data.
-      2. The published data is passed to an external application.
+      2. The published data is passed to an external application (openmctvia websocket).
       3. A non plugin module is borrowing a plugin's publish function, making it not obvious that PUB/SUB messages are being emitted. (See RAF SLE interface for example).
 
     It's not necessary to use these types for inter plugin communication. Continue to use plugin names or strings to explicitly chain plugins together into a pipeline.
@@ -42,12 +41,13 @@ class MessageType(Enum):
     CL_VALIDATE = 'Have command loader verify a script, command, or uplink path'
     CL_RESULT = 'Contains result of Command Loader action {(action, argument): (BOOL, [Errors])}'
     FM_TASK_DONE = 'Generic task done for File Manager'
+    FM_DL_STATUS = "Status of completed downlinks and S3 uploads"
 
     def to_tuple(self):
         return (self.name, self.value)
 
 
-class Task_Message():
+class Task_Message(ABC):
 
     @classmethod
     def name(cls):
@@ -55,28 +55,37 @@ class Task_Message():
 
     def __init__(self, ID, filepath):
         self.ID = ID
-        self.result = None
+        self.result = None # Result is usually published overpubsub
         self.name = self.name()
         self.filepath = Path(filepath)
+        self.final = False # Task is final and can be ignored, use to prevent loop, see openmct usage
 
     def __repr__(self):
         return str(self.__dict__)
 
+    @abstractmethod
+    def execute(self):
+        pass
+
 
 class File_Reassembly_Task(Task_Message):
     """ This task is run automatically with ID = downlink ID"""
-    def __init__(self, filepath, ground_id, SCID=0):
+    def __init__(self, filepath, ground_id, SCID=0, file_reassembler=None):
         Task_Message.__init__(self, ground_id, filepath)
         self.filename = self.filepath.name
         self.ground_id = ground_id
         self.md5_pass = False
         self.SCID = SCID
+        self.file_reassembler = file_reassembler
 
     def subset_map(self):
         a = {"status": self.result['initialize_file_downlink_reply']['status'],
              "md5_pass": self.md5_pass,
              "filepath": str(self.filepath.parent/self.filename)}
         return a
+
+    def execute(self):
+        self.file_reassembler(self.filepath.parent, None, self)
 
 
 class S3_File_Upload_Task(Task_Message):
@@ -102,12 +111,27 @@ class S3_File_Upload_Task(Task_Message):
         else:
             return None
 
+    def execute(self, s3_resource):
+        try:
+            response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath), self.s3_path)
+            if not response:
+                self.result = True
+        except Exception as e:
+            log.error(e)
+            self.result = str(e)
+        log.info(f"Task ID {self.ID} -> {self.filepath} uploaded to {self.s3_path}")
+
 
 class CSV_to_Influx_Task(Task_Message):
     def __init__(self, ID, filepath, postprocessor):
         Task_Message.__init__(self, ID, filepath)
         self.postprocessor = postprocessor
-        self.measurement, self.df = self.postprocessor(filepath)
+        self.measurement = None
+        self.df = None
+
+    def execute(self):
+        self.measurement, self.df = self.postprocessor(self.filepath)
+        self.result = True
 
 
 class Tar_Decompress_Task(Task_Message):
@@ -115,11 +139,6 @@ class Tar_Decompress_Task(Task_Message):
     def __init__(self, ID, filepath):
         Task_Message.__init__(self, ID, filepath)
         self.result = None
-        self.process()
-
-    def process(self):
-        self.decompress()
-        return self.result
 
     def decompress(self):
         with tarfile.open(self.filepath) as tar:
@@ -127,16 +146,17 @@ class Tar_Decompress_Task(Task_Message):
                 tar.extractall(self.filepath.parent)
                 self.result = self.filepath.parent
             except Exception as e:
-                log.warn(f"{self.filepath} could not be untarred: {e} ")
+                log.warn(f"Task ID: {self.ID} {self.filepath} could not be untarred: {e} ")
+
+    def execute(self):
+        self.decompress()
 
 
 class Bz2_Decompress_Task(Task_Message):
     def __init__(self, ID, filepath):
         Task_Message.__init__(self, ID, filepath)
-        self.result = None
-        self.process()
 
-    def process(self):
+    def execute(self):
         self.decompress()
         return self.result
 
@@ -147,4 +167,4 @@ class Bz2_Decompress_Task(Task_Message):
                     g.write(f.read())
                     self.result = self.filepath.with_suffix('')
             except Exception as e:
-                log.warn(f"{self.filepath} could not be decompressed: {e}")
+                log.warn(f"Task ID:{self.ID} {self.filepath} could not be decompressed: {e}")
