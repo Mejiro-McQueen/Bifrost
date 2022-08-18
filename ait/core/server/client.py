@@ -53,6 +53,7 @@ class ZMQClient(object):
         msg = utils.encode_message(topic, msg)
         if msg is None:
             log.error(f"{self} unable to encode msg {msg} for send.")
+            raise ValueError("Message Can not be None")
             return
 
         self.pub.send_multipart(msg)
