@@ -5,8 +5,11 @@ from collections import deque, defaultdict, namedtuple
 import itertools
 
 from ait.core import log
+import ait
 
 Alarm_Result = namedtuple('Alarm_Result', 'state threshold')
+
+default_yaml = ait.config.get('alarms.filename')
 
 
 def partition(items, predicate):
@@ -27,22 +30,35 @@ class Alarm_State(Enum):
 class Alarm_Check():
 
     @classmethod
-    def load_yaml(cls, yaml_filepath):
+    def load_yaml(cls, yaml_filepath=None):
+        if not yaml_filepath:
+            yaml_filepath = default_yaml
         cls.alarm_filepath = Path(yaml_filepath)
-        with cls.alarm_filepath.open() as f:
-            cls.alarm_map = yaml.full_load(f.read())
+        try:
+            with cls.alarm_filepath.open() as f:
+                cls.alarm_map = yaml.full_load(f.read())
+        except Exception as e:
+            log.error(f"Could not open limits yaml: {cls.alarm_filepath}")
+            raise e
 
-    def __init__(self, yaml_path=None):
-        if yaml_path:
-            self.load_yaml(yaml_path)
+    def __init__(self, yaml_filepath=None):
+        self.load_yaml(yaml_filepath)
         self.threshold_tracker = defaultdict(lambda: defaultdict(dict))
 
 
     @classmethod
     def get_alarm_state(cls, packet_name, packet_field, value):
-        alarm_associations = cls.alarm_map[packet_name][packet_field]
+        try:
+            alarm_associations = cls.alarm_map[packet_name][packet_field]
+        except KeyError as e:
+            log.debug((f"could not find alarms for {packet_name}:{packet_field} {e} " # TODO: Decide if we should be strict
+                       f"check {cls.alarm_filepath}. "
+                       f"assuming state is {Alarm_State.GREEN}"))
+            return Alarm_State.GREEN
+
         if not alarm_associations:
             return Alarm_State.GREEN
+
         for color, alarm_values in alarm_associations.items():
             if alarm_values is None or color == "THRESHOLD": # Skip empty and Threshold key
                 continue
@@ -55,7 +71,6 @@ class Alarm_Check():
             res = interval_results or exact_results
             if res:
                 return Alarm_State[color]
-        log.info("No matches")
         return Alarm_State.GREEN
 
     @classmethod
@@ -70,16 +85,23 @@ class Alarm_Check():
         return a
 
     def init_alarm_threshold(self, packet_name, field):
-        alarm_values = self.alarm_map[packet_name][field]
+        try:
+            alarm_values = self.alarm_map[packet_name][field]
+        except KeyError:
+            alarm_values = None
+
         if alarm_values is None:
             return
-        else:
-            threshold = alarm_values.get('THRESHOLD', 0)
+
+        threshold = alarm_values.get('THRESHOLD', 0)
         self.threshold_tracker[packet_name][field] = deque(itertools.repeat(None, threshold), maxlen=threshold)
 
     def check_state(self, packet_name, field, value):
         threshold_states = self.get_alarm_thresholds(packet_name, field)
         instant_state = self.get_alarm_state(packet_name, field, value)
+
+        #if packet_name == "MISSION_MANAGER_ACTIVE_MODE":
+        #    log.info(f"{packet_name} : {field} : {value} {instant_state}")
 
         if threshold_states:
             threshold_states.append(instant_state)

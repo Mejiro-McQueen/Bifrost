@@ -27,6 +27,8 @@ import struct
 import yaml
 import csv
 from io import IOBase
+import math
+import sys
 
 import ait
 from ait.core import dtype, json, log, util
@@ -554,16 +556,39 @@ class Packet:
             log.error(e)
             raise e
 
-    def items(self):
+    def canonical_form(self, val):
+        if isinstance(val, FieldList):
+            val = val.canonical_form()
+
+        elif isinstance(val, str):
+            val = val.strip()
+
+        elif isinstance(val, bytes):
+            val = val.decode("ascii").rstrip("\x00")
+
+        elif val is None:
+            val = "None"
+
+        elif math.isnan(val):
+            val = "NaN"
+
+        elif math.isinf(val):
+            val = float(sys.maxsize)
+
+        return val
+
+    def items(self, ignore_canonical=False):
         try:
             d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
             for (k, v) in d.items():
+                if not ignore_canonical:
+                    v = self.canonical_form(v)
                 yield (k, v)
         except struct.error as e:
-            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            log.warn(f"struct error: Could not decode a field. Abandoning packet: {e}")
             return {}
         except ValueError as e:
-            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            log.warn(f"Val Error: Could not decode a field. Abandoning packet: {e}")
             return {}
         except Exception as e:
             log.warn(f"Could not decode a field. Abandoning packet: {e}")
@@ -575,6 +600,8 @@ class Packet:
 
     def values(self):
         for i in [getattr(self, name) for name in self._defn.fieldmap]:
+            if isinstance(i, FieldList):
+                i = i.canonical_form()
             yield i
 
     @property
@@ -599,7 +626,6 @@ class Packet:
 
     def __getitem__(self, k):
         return PacketContext(self)[k]
-
 
 class PacketContext:
     """PacketContext
