@@ -326,7 +326,7 @@ class InfluxDBBackend(GenericBackend):
         alarm_tags = {c.name: None for c in Alarm_State}
         for (field_name, value) in packet.items():
             val = value
-            c = alarms[field_name]
+            c = alarms[field_name]['state']
             if alarm_tags[c]:
                 alarm_tags[c] += f", {field_name}"
             else:

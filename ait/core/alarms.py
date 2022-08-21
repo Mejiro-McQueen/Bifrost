@@ -115,8 +115,7 @@ class Alarm_Check():
 
         elif instant_state is Alarm_State.RED or instant_state is Alarm_State.YELLOW:
             if (all((i is Alarm_State.RED or i is Alarm_State.YELLOW) for i in threshold_states)):
-                log.warn(f"{packet_name}:{field} has triggered its threshold")
-                log.warn(f"{packet_name}:{field} is in {instant_state}")
+                log.warn(f"Packet: {packet_name} field: {field} has triggered its threshold and is in {instant_state}")
                 return Alarm_Result(instant_state, True)
             else:
                 log.warn(f"{packet_name}:{field} is in {instant_state} but has not triggered threshold")
