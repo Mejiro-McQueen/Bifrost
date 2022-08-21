@@ -137,24 +137,20 @@ class FieldList(collections.Sequence):
         return str(self.canonical_form())
 
     def canonical_form(self):
-    # Convert to Canonical Form
         field_name = self._defn.name
-        if all(isinstance(i, str) for i in self):
-            val = ", ".join(self)
-            log.debug(f"{__name__} -> FieldList String => {field_name}: {val}")
+        a = (i for i in self)
+        val = ""
 
-        elif "bytes" in field_name or 'md5' in field_name:
+        if "bytes" in field_name or 'md5' in field_name:
             accum = 0
-            for i in self:
+            for i in a:
                 accum = (accum << 8) + i
             val = str(hex(accum))
             log.debug(f"{__name__} -> FieldList Bytes => {field_name}: {val}")
 
-        elif all(isinstance(i, (float, int)) for i in self):
-            val = [str(i) for i in self]
-            val = ",".join(val)
-            log.debug(f"{__name__} -> FieldList CSV => {field_name}: {val}")
-
+        else:
+            for i in a:
+                val += ", " + str(i)
         return val
 
 
@@ -559,6 +555,7 @@ class Packet:
     def canonical_form(self, val):
         if isinstance(val, FieldList):
             val = val.canonical_form()
+            #val = val
 
         elif isinstance(val, str):
             val = val.strip()
@@ -581,9 +578,10 @@ class Packet:
         try:
             d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
             for (k, v) in d.items():
-                if not ignore_canonical:
-                    v = self.canonical_form(v)
-                yield (k, v)
+                if ignore_canonical:
+                    yield (k, v)
+                else:
+                    yield(k, self.canonical_form(v))
         except struct.error as e:
             log.warn(f"struct error: Could not decode a field. Abandoning packet: {e}")
             return {}
@@ -600,8 +598,6 @@ class Packet:
 
     def values(self):
         for i in [getattr(self, name) for name in self._defn.fieldmap]:
-            if isinstance(i, FieldList):
-                i = i.canonical_form()
             yield i
 
     @property
