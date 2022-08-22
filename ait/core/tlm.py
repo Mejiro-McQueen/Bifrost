@@ -27,6 +27,8 @@ import struct
 import yaml
 import csv
 from io import IOBase
+import math
+import sys
 
 import ait
 from ait.core import dtype, json, log, util
@@ -135,24 +137,20 @@ class FieldList(collections.Sequence):
         return str(self.canonical_form())
 
     def canonical_form(self):
-    # Convert to Canonical Form
         field_name = self._defn.name
-        if all(isinstance(i, str) for i in self):
-            val = ", ".join(self)
-            log.debug(f"{__name__} -> FieldList String => {field_name}: {val}")
+        a = (i for i in self)
+        val = ""
 
-        elif "bytes" in field_name or 'md5' in field_name:
+        if "bytes" in field_name or 'md5' in field_name:
             accum = 0
-            for i in self:
+            for i in a:
                 accum = (accum << 8) + i
             val = str(hex(accum))
             log.debug(f"{__name__} -> FieldList Bytes => {field_name}: {val}")
 
-        elif all(isinstance(i, (float, int)) for i in self):
-            val = [str(i) for i in self]
-            val = ",".join(val)
-            log.debug(f"{__name__} -> FieldList CSV => {field_name}: {val}")
-
+        else:
+            for i in a:
+                val += ", " + str(i)
         return val
 
 
@@ -554,16 +552,41 @@ class Packet:
             log.error(e)
             raise e
 
-    def items(self):
+    def canonical_form(self, val):
+        if isinstance(val, FieldList):
+            val = val.canonical_form()
+            #val = val
+
+        elif isinstance(val, str):
+            val = val.strip()
+
+        elif isinstance(val, bytes):
+            val = val.decode("ascii").rstrip("\x00")
+
+        elif val is None:
+            val = "None"
+
+        elif math.isnan(val):
+            val = "NaN"
+
+        elif math.isinf(val):
+            val = float(sys.maxsize)
+
+        return val
+
+    def items(self, ignore_canonical=False):
         try:
             d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
             for (k, v) in d.items():
-                yield (k, v)
+                if ignore_canonical:
+                    yield (k, v)
+                else:
+                    yield(k, self.canonical_form(v))
         except struct.error as e:
-            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            log.warn(f"struct error: Could not decode a field. Abandoning packet: {e}")
             return {}
         except ValueError as e:
-            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            log.warn(f"Val Error: Could not decode a field. Abandoning packet: {e}")
             return {}
         except Exception as e:
             log.warn(f"Could not decode a field. Abandoning packet: {e}")
@@ -599,7 +622,6 @@ class Packet:
 
     def __getitem__(self, k):
         return PacketContext(self)[k]
-
 
 class PacketContext:
     """PacketContext
