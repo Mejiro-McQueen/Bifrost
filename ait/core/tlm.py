@@ -493,7 +493,7 @@ class Packet:
     def _assert_field(self, fieldname):
         """Raise AttributeError when Packet has no field with the given
         name."""
-        if not self._hasattr(fieldname):
+        if not fieldname in self:
             values = self._defn.name, fieldname
             raise AttributeError("Packet '%s' has no field '%s'" % values)
 
@@ -539,7 +539,7 @@ class Packet:
 
         return value
 
-    def _hasattr(self, fieldname):
+    def __contains__(self, fieldname):
         """Returns True if this packet contains fieldname, False otherwise."""
         special = "history", "raw"
         try:
@@ -622,8 +622,15 @@ class Packet:
         """
         return self._defn.validate(self, messages)
 
-    def __getitem__(self, k):
-        return PacketContext(self)[k]
+    def __getitem__(self, name):
+        result = None
+        if name in self:
+            result = self._getattr(name)
+        else:
+            msg = "Packet '%s' has no field '%s'"
+            values = self._defn.name, name
+            raise KeyError(msg % values)
+        return result
 
 class PacketContext:
     """PacketContext
@@ -651,7 +658,7 @@ class PacketContext:
         """Returns packet[name]"""
         result = None
 
-        if self._packet._hasattr(name):
+        if name in self._packet:
             result = self._packet._getattr(name)
         else:
             msg = "Packet '%s' has no field '%s'"
