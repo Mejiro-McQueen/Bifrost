@@ -575,21 +575,23 @@ class Packet:
         return val
 
     def items(self, ignore_canonical=False):
+        last_field = None
         try:
-            d = {field_name: getattr(self, field_name) for field_name in self._defn.fieldmap}
-            for (k, v) in d.items():
+#            d = (field_name: getattr(self, field_name) for field_name in self._defn.fieldmap)
+            for field_name in self.keys():
+                val = getattr(self, field_name)
                 if ignore_canonical:
-                    yield (k, v)
+                    yield (field_name, val)
                 else:
-                    yield(k, self.canonical_form(v))
+                    yield(field_name, self.canonical_form(val))
         except struct.error as e:
-            log.warn(f"struct error: Could not decode a field. Abandoning packet: {e}")
+            log.warn(f"struct error: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
             return {}
         except ValueError as e:
-            log.warn(f"Val Error: Could not decode a field. Abandoning packet: {e}")
+            log.warn(f"Val Error: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
             return {}
         except Exception as e:
-            log.warn(f"Could not decode a field. Abandoning packet: {e}")
+            log.warn(f"Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
             return {}
 
     def keys(self):
@@ -597,7 +599,7 @@ class Packet:
             yield i
 
     def values(self):
-        for i in [getattr(self, name) for name in self._defn.fieldmap]:
+        for i in (getattr(self, name) for name in self._defn.fieldmap):
             yield i
 
     @property
