@@ -12,7 +12,8 @@ import socket
 import ait.core
 from ait.core import log
 import ait.core.server.utils as utils
-
+from ait.core.message_types import MessageType
+import traceback
 
 class ZMQClient(object):
     """
@@ -52,6 +53,7 @@ class ZMQClient(object):
         msg = utils.encode_message(topic, msg)
         if msg is None:
             log.error(f"{self} unable to encode msg {msg} for send.")
+            raise ValueError("Message Can not be None")
             return
 
         self.pub.send_multipart(msg)
@@ -117,7 +119,10 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                     self.process(message, topic=topic)
                 except Exception as e:
                     log.error(f"encountered uncaught exception: {e} on {self} processing message {message}")
-                    log.error(sys.exc_info())
+                    log.error(traceback.format_exc())
+                    if e is None:
+                        e = "Unknown"
+                    self.publish(f"Error: {e}", MessageType.PANIC.name)
                     if self.exit_on_exception:
                         sys.exit(f"Encountered exception while processing message. Now exiting.")
         except Exception as e:

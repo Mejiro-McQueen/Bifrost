@@ -258,7 +258,16 @@ class PrimitiveType(object):
         ``decode()`` inteface, but has no effect for PrimitiveType
         definitions.
         """
-        return struct.unpack(self.format, memoryview(bytestring))[0]
+        try:
+            res = struct.unpack(self.format, memoryview(bytestring))[0]
+            return res
+        except IndexError as e:
+            raise e
+        except struct.error as e:
+            raise e
+        except Exception as e:
+            log.error(e)
+            raise e
 
     def toJSON(self):  # noqa
         return self.name

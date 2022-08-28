@@ -32,7 +32,7 @@ import ait
 from ait.core import cfg, cmd, dmc, evr, log, tlm
 
 from ait.core.tlm import FieldList
-
+from ait.core.alarms import Alarm_State, Alarm_Check
 
 class AITDBResult:
     """AIT Database result wrapper.
@@ -320,90 +320,34 @@ class InfluxDBBackend(GenericBackend):
         self._conn.create_database(dbname)
         self._conn.switch_database(dbname)
 
-    def insert(self, packet, time=None, **kwargs):
-        """Insert a packet into the database
-
-        Arguments
-            packet
-                The :class:`ait.core.tlm.Packet` instance to insert into
-                the database
-
-            time
-                Optional parameter specifying the time value to use when inserting
-                the record into the database. Default case does not provide a time
-                value so Influx defaults to the current time when inserting the
-                record.
-
-            tags
-                Optional kwargs argument for specifying a dictionary of tags to
-                include when adding the values. Defaults to nothing.
-
-        """
+    def insert(self, name, packet, time=None, alarms={}, **kwargs):
         fields = {}
-        pd = packet._defn
-        
+        tags = {}
+        alarm_tags = {c.name: None for c in Alarm_State}
         for (field_name, value) in packet.items():
             val = value
+            c = alarms[field_name]['state']
+            if alarm_tags[c]:
+                alarm_tags[c] += f", {field_name}"
+            else:
+                alarm_tags[c] = f"{field_name}"
 
-            if isinstance(val, FieldList):
-                val = val.canonical_form()
-                # field_list_type = pd.fieldmap[field_name]._type
-                # is_field_type_string = field_list_type.type.string
-                # field_list_units = pd.fieldmap[field_name].units
-                # field_list_array_element_count = field_list_type.nelems
-                # prim = field_list_type.type
-
-
-                # debug_values = [field_name,
-                #                 str(field_list_type),
-                #                 field_list_units,
-                #                 str(is_field_type_string),
-                #                 str(field_list_array_element_count),
-                #                 str(prim)]
-
-                # log.debug(f"Debug Values => {', '.join(debug_values)}")
-
-            elif isinstance(val, str):
-                log.debug(f"String => {field_name}: {val}")
-
-            elif isinstance(val, bytes):
-                val = val.decode("ascii").rstrip("\x00")
-                log.debug(f"Bytes => {field_name}: {val}")
-
-            elif val is None:
-                val = "None"
-                log.error(f"Value is None => {field_name}: {val}")
-
-            elif math.isnan(val):
-                log.error(f"Value is NAN  => {field_name}: {val} {type(val)}")
-                val = "NOT A NUMBER"
-                    
-            elif math.isinf(val):
-                val = float(sys.maxsize)
-                log.debug(f"Value is INF - Setting value to MAX_INT => {field_name}: {val} {type(val)}")
-                
             fields[field_name] = val
 
         if len(fields) == 0:
-            log.error("No fields present to insert into Influx")
+            log.debug("No fields present to insert into Influx")
             return
 
-        tags = kwargs.get("tags", {})
+        # TODO: Python 3.9 -> tags = tags | alarm_tags
+        tags = {**alarm_tags, **tags}
 
-        ## TODO: Use for next release
-        # time.format='iso'
-        # fields['event_time_gps'] = str(time)
+        time.format = 'iso'
+        fields['event_time_gps'] = str(time)
 
-        data = {"measurement": pd.name, "tags": tags, "fields": fields}
-
-        ## TODO: Use for next release
-        # time.format='gps'
-        # time_ns = int(float(str(time))*1E9)
-        # data["time"] = time_ns
-
-        ## TODO: Delete on next release
-        time.format='iso'
-        data['time'] = time.datetime.isoformat("T") + "Z"
+        time.format = 'gps'
+        time_ns = int(float(str(time))*1E9)
+        
+        data = {"time": time_ns, "measurement": name, "tags": tags, "fields": fields}
         
         self._conn.write_points([data])
 

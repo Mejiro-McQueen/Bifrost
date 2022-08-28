@@ -353,6 +353,11 @@ class AnnoyingFilter(logging.Filter):
                           "Published message from",
                           "received message from",
                           "to allow ZeroQM connection to complete",
+                          "Added config for deferred plugin",
+                          "Spawning <PluginsProcess",
+                          "No plugin inputs specified",
+                          "No streams available for telemetry API",
+                          
                           ]
     black_list_modules = ["dmc"]
     def filter(self, record):
