@@ -34,8 +34,9 @@ def encode_message(topic, data):
     try:
         enc = [bytes(topic, "utf-8"), pickle.dumps(data)]
     # TODO: This should be way less generic than Exception
-    except Exception:
+    except Exception as e:
         enc = None
+        raise e
 
     return enc
 

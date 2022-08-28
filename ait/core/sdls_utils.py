@@ -20,14 +20,14 @@ def get_sdls_type():
     except Exception as e:
         print(e)
         sdls_type = None
-        log.debug(f"{log_header} Got None. {ait.config.get('dsn.sle.tctf.expected_sdls_type')}")
+        #log.debug(f"{log_header} Got None. {ait.config.get('dsn.sle.tctf.expected_sdls_type')}")
     if not sdls_type: 
         log.warn(f"{log_header} {config_prefix}expected_sdls_type parameter "
                  "was not found on config.yaml <CLEAR|AUTH|ENC>. "
                  "Assuming ENC.")
         sdls_type = SDLS_Type.ENC
 
-    log.debug(f"found SDLS_Type: {sdls_type}")
+    #log.debug(f"found SDLS_Type: {sdls_type}")
     return sdls_type
 
 class SDLS_Type(Enum):
