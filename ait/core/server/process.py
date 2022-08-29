@@ -9,6 +9,7 @@ import setproctitle  # type: ignore
 from ait.core import log
 from .plugin import Plugin
 from .broker import Broker
+import traceback
 
 
 class PluginsProcess(object):
@@ -168,10 +169,12 @@ class PluginsProcess(object):
                               f"'{namespace}' plugins list")
                     plugin_list.append(plugin)
 
-            except Exception:
+            except Exception as e:
                 exc_type, exc_value, tb = sys.exc_info()
                 log.error(f"{exc_type} creating plugin '{plugin_name}'' for "
                           f"process '{namespace}'': {exc_value}")
+                log.error(traceback.format_exc())
+                raise e
 
         return plugin_list
 
