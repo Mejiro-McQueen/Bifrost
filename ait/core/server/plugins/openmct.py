@@ -43,7 +43,7 @@ import ait.core
 from ait.core import api, dtype, log, tlm
 from ait.core.server.plugin import Plugin
 from ait.core.message_types import MessageType
-import ait.dsn.plugins.Graffiti as Graffiti
+from ait.dsn.plugins.Graffiti import Graphable, Node_Type, Node
 
 
 class ManagedWebSocket():
@@ -356,7 +356,7 @@ class DictUtils(object):
 
 
 class AITOpenMctPlugin(Plugin,
-                       Graffiti.Graphable):
+                       Graphable):
     """This is the implementation of the AIT plugin for interaction with
     OpenMCT framework.  Telemetry dispatched from AIT server/broker
     is passed along to OpenMct in the expected format.
@@ -445,7 +445,7 @@ class AITOpenMctPlugin(Plugin,
         self.downlinkMsg_poll_greenlet = Greenlet.spawn(self.poll_downlink_messages_periodically)
         gevent.spawn(self.init)
 
-        Graffiti.Graphable.__init__(self)
+        Graphable.__init__(self)
 
     def graffiti(self):
         variable_messages_inputs = [MessageType[i] for i in self.inputs if i in MessageType._member_names_]
@@ -453,11 +453,11 @@ class AITOpenMctPlugin(Plugin,
         telemetry_inputs = [i for i in self.inputs if i not in MessageType.__members__]
         telemetry_messages_labels = [(i, "Telemetry") for i in telemetry_inputs]
         log_input_labels = [(i, "Logs") for i in self.inputs if "log" in i]
-        n = Graffiti.Node(self.self_name,
-                          inputs=telemetry_messages_labels + variable_messages_labels + log_input_labels,
-                          outputs=[],
-                          label="Serve OpenMCT Telemetry",
-                          node_type=Graffiti.Node_Type.PLUGIN)
+        n = Node(self.self_name,
+                 inputs=telemetry_messages_labels + variable_messages_labels + log_input_labels,
+                 outputs=[],
+                 label="Serve OpenMCT Telemetry",
+                 node_type=Node_Type.PLUGIN)
         return [n]
 
     def _check_config(self):
