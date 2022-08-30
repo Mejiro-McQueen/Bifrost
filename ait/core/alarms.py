@@ -21,6 +21,8 @@ def partition(items, predicate):
 class Alarm_State(Enum):
     # Values are comments
     # Green is lowest priority, Red is highest
+    # We return as soon as one of these matches
+    # Otherwise, return green
     RED = 'PANIC'
     YELLOW = 'CAUTION'
     BLUE = 'NOTIFY'
@@ -45,22 +47,18 @@ class Alarm_Check():
         self.load_yaml(yaml_filepath)
         self.threshold_tracker = defaultdict(lambda: defaultdict(dict))
 
-
     @classmethod
     def get_alarm_state(cls, packet_name, packet_field, value):
-        try:
-            alarm_associations = cls.alarm_map[packet_name][packet_field]
-        except KeyError as e:
-            log.debug((f"could not find alarms for {packet_name}:{packet_field} {e} " # TODO: Decide if we should be strict
+        alarm_associations = cls.alarm_map.get(packet_name, {}).get(packet_field, None)
+        if alarm_associations is None:
+            log.debug((f"could not find alarms for {packet_name}:{packet_field}"
                        f"check {cls.alarm_filepath}. "
                        f"assuming state is {Alarm_State.GREEN}"))
             return Alarm_State.GREEN
 
-        if not alarm_associations:
-            return Alarm_State.GREEN
-
-        for color, alarm_values in alarm_associations.items():
-            if alarm_values is None or color == "THRESHOLD": # Skip empty and Threshold key
+        for color in Alarm_State:
+            alarm_values = alarm_associations.get(color.name, None)
+            if alarm_values is None:
                 continue
 
             exact_alarms, interval_alarms = partition(alarm_values, (lambda i: isinstance(i, (tuple))))
@@ -70,7 +68,7 @@ class Alarm_Check():
             exact_results = any(g(exact) for exact in exact_alarms)
             res = interval_results or exact_results
             if res:
-                return Alarm_State[color]
+                return Alarm_State[color.name]
         return Alarm_State.GREEN
 
     @classmethod
@@ -100,9 +98,6 @@ class Alarm_Check():
         threshold_states = self.get_alarm_thresholds(packet_name, field)
         instant_state = self.get_alarm_state(packet_name, field, value)
 
-        #if packet_name == "MISSION_MANAGER_ACTIVE_MODE":
-        #    log.info(f"{packet_name} : {field} : {value} {instant_state}")
-
         if threshold_states:
             threshold_states.append(instant_state)
 
@@ -122,5 +117,8 @@ class Alarm_Check():
                 return Alarm_Result(instant_state, False)
 
     def __call__(self, packet_name, field, value):
+        if self.alarm_map is None:
+            return Alarm_Result(Alarm_State.GREEN, False)
+
         res = self.check_state(packet_name, field, value)
         return res
