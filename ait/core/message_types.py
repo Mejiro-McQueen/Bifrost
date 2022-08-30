@@ -4,6 +4,8 @@ from pathlib import Path
 import tarfile
 import bz2
 from abc import ABC, abstractmethod
+from tqdm import tqdm
+
 
 class MessageType(Enum):
     """
@@ -70,13 +72,15 @@ class Task_Message(ABC):
 
 class File_Reassembly_Task(Task_Message):
     """ This task is run automatically with ID = downlink ID"""
-    def __init__(self, filepath, ground_id, SCID=0, file_reassembler=None):
+    def __init__(self, filepath, ground_id, SCID=0, file_size=0, file_reassembler=None):
         Task_Message.__init__(self, ground_id, filepath)
         self.filename = self.filepath.name
         self.ground_id = ground_id
         self.md5_pass = False
         self.SCID = SCID
         self.file_reassembler = file_reassembler
+        self.canonical_path = None
+        self.file_size = file_size
 
     def subset_map(self):
         a = {"status": self.result['initialize_file_downlink_reply']['status'],
@@ -93,33 +97,36 @@ class S3_File_Upload_Task(Task_Message):
     Request FileManager to upload local path to S3 bucket.
     If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
     """
-    def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_id):
+    def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_id, file_size):
         Task_Message.__init__(self, ID, filepath)
         self.bucket = bucket
         self.s3_path = s3_path
         self.ground_id = ground_id
         self.s3_region = s3_region
+        self.metadata = None
+        self.canonical_path = None
+        self.file_size = file_size
 
     def canonical_s3_url(self):
         if not self.result: # S3 upload returns none when successful, contains an exception otherwise
-            a = f"https://{self.bucket}.s3-{self.s3_region}.amazonaws.com/{self.s3_path}"
-            b = {'s3_url': a,
-                 's3_region': self.s3_region,
-                 's3_bucket': self.bucket,
-                 's3_key': str(self.s3_path)}
-            return b
-        else:
-            return None
+            self.canonical_path = f"https://{self.bucket}.s3-{self.s3_region}.amazonaws.com/{self.s3_path}"
+            self.metadata = {'s3_url': self.canonical_path,
+                             's3_region': self.s3_region,
+                             's3_bucket': self.bucket,
+                             's3_key': str(self.s3_path)}
 
     def execute(self, s3_resource):
         try:
-            response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath), self.s3_path)
-            if not response:
-                self.result = True
+            with tqdm(total=self.file_size, unit='bytes', unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}") as pbar:
+                response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath), self.s3_path, Callback=lambda b: pbar.update(b))
+            if response:
+                self.result = response
+                log.error(self.result)
         except Exception as e:
             log.error(e)
             self.result = str(e)
-        log.info(f"Task ID {self.ID} -> {self.filepath} uploaded to {self.s3_path}")
+        self.canonical_s3_url()
+        log.info(f"Task ID {self.ID} -> {self.filepath} uploaded to {self.canonical_path}")
 
 
 class CSV_to_Influx_Task(Task_Message):
