@@ -341,17 +341,9 @@ class InfluxDBBackend(GenericBackend):
         # TODO: Python 3.9 -> tags = tags | alarm_tags
         tags = {**alarm_tags, **tags}
 
-        # time.format = 'iso'
-        # fields['AIT_time_gps'] = str(time)
-
-        # time.format = 'gps'
-        # time_ns = int(float(str(time))*1E9)
-
         time.format = 'iso'
         time = time.datetime.isoformat("T") + "Z"
         data = {"time": time, "measurement": name, "tags": tags, "fields": fields}
-        
-        
         self._conn.write_points([data])
 
     def _query(self, query, **kwargs):
