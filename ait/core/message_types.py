@@ -72,12 +72,12 @@ class Task_Message(ABC):
 
 class File_Reassembly_Task(Task_Message):
     """ This task is run automatically with ID = downlink ID"""
-    def __init__(self, filepath, ground_id, SCID=0, file_size=0, file_reassembler=None):
+    def __init__(self, filepath, ground_id, sv_name="Chessmaster-Hex", file_size=0, file_reassembler=None):
         Task_Message.__init__(self, ground_id, filepath)
         self.filename = self.filepath.name
         self.ground_id = ground_id
         self.md5_pass = False
-        self.SCID = SCID
+        self.sv_name = sv_name
         self.file_reassembler = file_reassembler
         self.canonical_path = None
         self.file_size = file_size
