@@ -353,6 +353,9 @@ class ArrayType(object):
         if index < 0 or index >= self.nelems:
             raise IndexError("list index out of range")
 
+    def fundamental_type(self):
+        return self.type
+
     @property
     def name(self):
         """Name of this ArrayType."""
