@@ -11,7 +11,7 @@ import ait.core.server
 from .stream import PortInputStream, ZMQStream, PortOutputStream
 from .config import ZmqConfig
 from .broker import Broker
-from .plugin import PluginType, Plugin, PluginConfig
+from .plugin import Plugin, PluginConfig
 from .process import PluginsProcess
 from ait.core import log, cfg
 
@@ -27,35 +27,38 @@ class Server(object):
     """
 
     def __init__(self):
-        self.exit_on_exception = ait.config.get("server.exit_on_exception", False)
-        self.broker = Broker()
-
-        self.inbound_streams = []
-        self.outbound_streams = []
-        self.servers = []
-        self.plugins = []
-
-        # Dict from process namespace to PluginsProcess
-        self.plugin_process_dict = {}
-
-        self._load_streams_and_plugins()
-
-        # list of plugin processes that will be spawned
-        self.plugin_processes = self.plugin_process_dict.values()
-
-        self.broker.inbound_streams = self.inbound_streams
-        self.broker.outbound_streams = self.outbound_streams
-        self.broker.servers = self.servers
-        self.broker.plugins = self.plugins
-
-        # defining greenlets that need to be joined over
-        self.greenlets = (
-            [self.broker]
-            + self.broker.plugins
-            + self.broker.inbound_streams
-            + self.broker.outbound_streams
-        )
         atexit.register(self.shutdown)
+        try:
+            self.broker = Broker()
+
+            self.inbound_streams = []
+            self.outbound_streams = []
+            self.servers = []
+            self.plugins = []
+
+            # Dict from process namespace to PluginsProcess
+            self.plugin_process_dict = {}
+
+            self._load_streams_and_plugins()
+
+            # list of plugin processes that will be spawned
+            self.plugin_processes = self.plugin_process_dict.values()
+
+            self.broker.inbound_streams = self.inbound_streams
+            self.broker.outbound_streams = self.outbound_streams
+            self.broker.servers = self.servers
+            self.broker.plugins = self.plugins
+
+            # defining greenlets that need to be joined over
+            self.greenlets = (
+                [self.broker]
+                + self.broker.plugins
+                + self.broker.inbound_streams
+                + self.broker.outbound_streams
+            )
+        except Exception as e:
+            log.info("Encountered Exception, now exiting.")
+            sys.exit(e)
 
     def wait(self):
         """
@@ -375,69 +378,45 @@ class Server(object):
 
         if plugins is None:
             log.warn("No plugins specified in config.")
-        else:
-            for index, p in enumerate(plugins):
-                ait_cfg_plugin = p["plugin"]
+            return
 
-                # If a plugin config includes a 'process_id' entry, then
-                # that indicates that plugin will run in a separate process
-                # with that id.  Multiple plugins can specify the same value
-                # which allows them to all run within a process together
-                process_namespace = ait_cfg_plugin.pop('process_id', None)
-                plugin_type = PluginType.STANDARD if process_namespace is \
-                    None else PluginType.PROCESS
+        for index, p in enumerate(plugins):
+            ait_cfg_plugin = p["plugin"]
+            is_disabled = ait_cfg_plugin.get('disabled', False)
+            process_namespace = ait_cfg_plugin['name'].split('.')[-1]
+            if is_disabled:
+                log.warn(f"AIT-Config: Plugin {process_namespace} is disabled.")
+                continue
+            try:
+                plugins_process = PluginsProcess(process_namespace)
+                self.plugin_process_dict[process_namespace] = \
+                    plugins_process
 
-                if plugin_type == PluginType.PROCESS:
+                # Convert ait config section to PluginConfig instance
+                plugin_info = self._create_plugin_info(ait_cfg_plugin,
+                                                       False)
 
-                    # Plugin will run in a separate process (possibly with other
-                    # plugins)
-
-                    try:
-                        # Check if the namespace has already been created
-                        plugins_process = self.plugin_process_dict.get(
-                                          process_namespace, None)
-
-                        # If not, then create it and add to managed dict
-                        if plugins_process is None:
-                            plugins_process = PluginsProcess(process_namespace)
-                            self.plugin_process_dict[process_namespace] = \
-                                plugins_process
-
-                        # Convert ait config section to PluginConfig instance
-                        plugin_info = self._create_plugin_info(ait_cfg_plugin,
-                                                               False)
-
-                        # If successful, then add it to the process
-                        if plugin_info is not None:
-                            plugins_process.add_plugin_info(plugin_info)
-                            log.info("Added config for deferred plugin "
-                                     f"{plugin_info.name} to plugin-process "
-                                     f"'{process_namespace}'")
-
-                    except Exception:
-                        exc_type, exc_msg, tb = sys.exc_info()
-                        log.error(f"{exc_type} creating plugin config {index} "
-                                  f"for process-id '{process_namespace}': "
-                                  f"{exc_msg}")
-                        log.error(traceback.format_exc())
-
+                # If successful, then add it to the process
+                if plugin_info is not None:
+                    plugins_process.add_plugin_info(plugin_info)
+                    log.info("Added config for deferred plugin "
+                             f"{plugin_info.name} to plugin-process "
+                             f"'{process_namespace}'")
                 else:
+                    log.error(f"Encounted error instantiating {process_namespace}")
+                    sys.exit()
 
-                    # Plugin will run in current process's greenlet set
-                    try:
-                        plugin = self._create_plugin(ait_cfg_plugin)
-                        if plugin is not None:
-                            self.plugins.append(plugin)
-                            log.info(f"Added plugin {plugin}")
+            except Exception as e:
+                exc_type, exc_msg, tb = sys.exc_info()
+                log.error(f"{exc_type} creating plugin config {index} "
+                          f"for process-id '{process_namespace}': "
+                          f"{exc_msg}")
+                log.error(traceback.format_exc())
+                raise e
 
-                    except Exception:
-                        exc_type, value, tb = sys.exc_info()
-                        log.error(f"{exc_type} creating plugin {index}: "
-                                  f"{value}")
-
-            if not self.plugins and not self.plugin_process_dict:
-                log.warn("No valid plugin configurations found. No plugins"
-                         " will be added.")
+        if not self.plugins and not self.plugin_process_dict:
+            log.warn("No valid plugin configurations found. No plugins"
+                     " will be added.")
 
     def _create_zmq_args(self, reuse_broker_context):
         """

@@ -30,7 +30,6 @@ class ZMQClient(object):
         **kwargs,
     ):
 
-        self.exit_on_exception = ait.config.get("server.exit_on_exception", False)
         self.context = zmq_context
         # open PUB socket & connect to broker
         self.pub = self.context.socket(zmq.PUB)
@@ -123,8 +122,7 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                     if e is None:
                         e = "Unknown"
                     self.publish(f"Error: {e}", MessageType.PANIC.name)
-                    if self.exit_on_exception:
-                        sys.exit(f"Encountered exception while processing message. Now exiting.")
+                    sys.exit(f"Encountered exception while processing message. Now exiting.")
         except Exception as e:
             log.error(
                 "Exception raised in {} while receiving messages: {}".format(self, e)

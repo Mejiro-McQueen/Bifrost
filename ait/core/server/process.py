@@ -174,7 +174,6 @@ class PluginsProcess(object):
                 log.error(f"{exc_type} creating plugin '{plugin_name}'' for "
                           f"process '{namespace}'': {exc_value}")
                 log.error(traceback.format_exc())
-                raise e
 
         return plugin_list
 
