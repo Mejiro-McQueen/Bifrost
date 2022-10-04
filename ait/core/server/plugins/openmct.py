@@ -1186,8 +1186,8 @@ class AITOpenMctPlugin(Plugin,
             subscribed_pkt = mws.create_subscribed_packet(mct_pkt)
             # If that new packet still has fields, stringify and send
             if subscribed_pkt:
-                metadata = {k:v for (k,v) in packet_metadata.items() if k != "user_data_field"}
-                t = metadata['event_time_gps'] = metadata['event_time_gps']
+                metadata = {k:v for (k,v) in packet_metadata.items() if k not in ["user_data_field", "decoded_packet", "packet_name"] }
+                t = metadata['event_time_gps']
                 t.format='iso'
                 metadata['event_time_gps'] = str(t)
                 subscribed_pkt['metadata'] = metadata
