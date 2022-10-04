@@ -10,37 +10,6 @@ import gevent.monkey
 gevent.monkey.patch_all()
 
 
-class PluginType(enum.Enum):
-    """
-    Enumeration for Plugin type: standard plugin (greenlet) or process-based
-    """
-    STANDARD = enum.auto()
-    PROCESS = enum.auto()
-
-    @classmethod
-    def value_of(cls, str_value, default):
-        """
-        Class method that returns a Type enum based on string value.
-        If value is None or does not match, then Type.GREENLET is returned
-        by default.
-
-        Params:
-            value: Name associated with the enum
-            default: Default value to be returned, can be None
-
-        Returns:
-            plugin.Type - Type enum instance
-        """
-        if str_value:
-            for k, v in cls.__members__.items():
-                if k.lower() == str_value.lower():
-                    return v
-        if default:
-            return default
-        else:
-            raise ValueError(f"'{cls.__name__}' enum not found for '{str_value}'")
-
-
 class PluginConfig(object):
     """
     Data-structure for plugin information.
