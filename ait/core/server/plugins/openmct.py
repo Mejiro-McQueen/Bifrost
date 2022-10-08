@@ -1299,10 +1299,10 @@ class AITOpenMctPlugin(Plugin,
             mws.unsubscribe_field(msg_parts[1])
         elif directive in MessageType._member_names_:
             msg = " ".join(msg_parts[1:]).strip()
-            #log.info(f"Got MessageType {msg}!")
-            self.publish(msg, directive)
+            #log.info(f"Got MessageType {msg} for directive {directive}!")
+            self.publish(msg, topic=directive)
         else:
-            self.warn(f"Unexpected web-socket message: {message}")         
+            log.warn(f"Unexpected web-socket message: {message}")
 
     # ---------------------------------------------------------------------
     # Routing rules

@@ -117,7 +117,7 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                 try:
                     self.process(message, topic=topic)
                 except Exception as e:
-                    log.error(f"encountered uncaught exception: {e} on {self} processing message {message}")
+                    log.error(f"encountered uncaught exception: {e} on {self} processing message {message} on {topic}")
                     log.error(traceback.format_exc())
                     if e is None:
                         e = "Unknown"
