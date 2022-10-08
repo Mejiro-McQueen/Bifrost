@@ -38,6 +38,8 @@ class MessageType(Enum):
     CL_RESULT = 'Contains result of Command Loader action\n {(action, argument): (BOOL, [Errors])}'
     FM_TASK_DONE = 'Generic task done\n for File Manager'
     FM_DL_STATUS = "Status of completed\n downlinks and S3 uploads"
+    SLE_CLTU_RESTART = "Force an SLE CLTU Interface Restart"
+    SLE_RAF_RESTART = "Force an SLE RAF Interface Restart"
 
     def to_tuple(self):
         return (self.name, self.value)
