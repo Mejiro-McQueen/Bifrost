@@ -358,7 +358,9 @@ class AnnoyingFilter(logging.Filter):
                           "Spawning <PluginsProcess",
                           "No plugin inputs specified",
                           "No streams available for telemetry API",
-                          
+                          "Replacing ait",
+                          "Running AIT OpenMCT Plugin",
+                          "[OpenMCT Database Configuration]",
                           ]
     black_list_modules = ["dmc"]
     def filter(self, record):
