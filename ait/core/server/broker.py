@@ -1,7 +1,8 @@
 import zmq.green as zmq
 import gevent
 import gevent.monkey
-
+import sys
+import signal 
 gevent.monkey.patch_all()
 
 from typing import List, Any
@@ -11,6 +12,12 @@ import ait.core.server
 from ait.core import log
 from .config import ZmqConfig
 
+def clean_exit(sig, frame=None):
+    if sig == signal.SIGINT:
+        ait.core.log.error("All OK! Caught SIGINT! Shutting down!")
+    if sig == signal.SIGTERM:
+        ait.core.log.error("ALL OK! Caught SIGTERM! Shutting down!")
+    sys.exit()
 
 class Broker(gevent.Greenlet):
     """
@@ -33,6 +40,9 @@ class Broker(gevent.Greenlet):
         self.command_topic = ait.config.get("command.topic", ait.DEFAULT_CMD_TOPIC)
 
         gevent.Greenlet.__init__(self)
+        signal.signal(signal.SIGINT, clean_exit)
+        signal.signal(signal.SIGTERM, clean_exit)
+        
 
     def _run(self):
         self._setup_proxy()
