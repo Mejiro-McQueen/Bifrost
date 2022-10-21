@@ -17,8 +17,8 @@ class PacketAccumulator(Plugin,
         self.timer_seconds = timer_seconds
         if not self.timer_seconds:
             log.warn(f"parameter timer_seconds was not providede in config.yaml")
-        if self.timer_seconds < 1:
-            self.timer_seconds = 1
+        if self.timer_seconds < 0:
+            self.timer_seconds = 0
             self.log.error(f"timer value {timer_seconds} must be greater "
                            f"than or equal to 1. Defaulting to {self.timer_seconds} seconds.")
         Graffiti.Graphable.__init__(self)
@@ -34,7 +34,11 @@ class PacketAccumulator(Plugin,
 
         if not check_data_field_size(data):
             log.error(f"initial payload from {topic} is oversized!")
-            
+
+        if self.timer_seconds == 0:
+            self.publish(data)
+            return
+
         data_len = len(data)
         # Does not fit, need to emit
         if self.size_packet_queue_octets + data_len > self.max_size_octets:
