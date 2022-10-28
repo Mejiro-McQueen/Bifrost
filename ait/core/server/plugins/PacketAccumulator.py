@@ -19,8 +19,8 @@ class PacketAccumulator(Plugin,
             log.warn(f"parameter timer_seconds was not providede in config.yaml")
         if self.timer_seconds < 0:
             self.timer_seconds = 0
-            self.log.error(f"timer value {timer_seconds} must be greater "
-                           f"than or equal to 1. Defaulting to {self.timer_seconds} seconds.")
+            log.error(f"timer value {timer_seconds} must be greater "
+                      f"than or equal to 1. Defaulting to {self.timer_seconds} seconds.")
         Graffiti.Graphable.__init__(self)
 
     def periodic_check(self):

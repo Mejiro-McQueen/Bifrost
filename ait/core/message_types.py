@@ -40,6 +40,8 @@ class MessageType(Enum):
     FM_DL_STATUS = "Status of completed\n downlinks and S3 uploads"
     SLE_CLTU_RESTART = "Force an SLE CLTU Interface Restart"
     SLE_RAF_RESTART = "Force an SLE RAF Interface Restart"
+    SLE_CLTU_STOP = "Force an SLE CLTU Interface to stop"
+    SLE_RAF_STOP = "Force an SLE RAF Interface to stop"
 
     def to_tuple(self):
         return (self.name, self.value)
