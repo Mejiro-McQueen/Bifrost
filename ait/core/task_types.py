@@ -40,35 +40,33 @@ class Tasks:
 
     class File_Reassembly(Task_Message):
         """ This task is run automatically with ID = downlink ID"""
-        def __init__(self, filepath, ground_id, sv_name="Chessmaster-Hex", file_size=0, file_reassembler=None):
-            Task_Message.__init__(self, ground_id, filepath)
-            self.filename = self.filepath.name
-            self.ground_id = ground_id
+        def __init__(self, filepath, downlink_id, sv_name="Chessmaster-Hex", file_size=0,
+                     file_reassembler=None):
+            Task_Message.__init__(self, downlink_id, filepath)
+            self.downlink_id = downlink_id
             self.md5_pass = False
             self.sv_name = sv_name
             self.file_reassembler = file_reassembler
-            self.canonical_path = None
             self.file_size = file_size
 
         def subset_map(self):
-            a = {"status": self.result['initialize_file_downlink_reply']['status'],
-                 "md5_pass": self.md5_pass,
-                 "filepath": str(self.filepath.parent / self.filename)}
+            a = {"md5_pass": self.md5_pass,
+                 "filepath": str(self.filepath)}
             return a
 
         def execute(self):
-            self.file_reassembler(self.filepath.parent, None, self)
+            self.file_reassembler(self.filepath, self)
 
     class S3_File_Upload(Task_Message):
         """
         Request FileManager to upload local path to S3 bucket.
         If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
         """
-        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_id, file_size):
+        def __init__(self, ID, bucket, filepath, s3_path, s3_region, downlink_id, file_size):
             Task_Message.__init__(self, ID, filepath)
             self.bucket = bucket
             self.s3_path = s3_path
-            self.ground_id = ground_id
+            self.downlink_id = downlink_id
             self.s3_region = s3_region
             self.metadata = None
             self.canonical_path = None
@@ -92,6 +90,7 @@ class Tasks:
             except Exception as e:
                 log.error(e)
                 self.result = str(e)
+                return
             self.canonical_s3_url()
             log.info(f"Task ID {self.ID} -> {self.filepath} uploaded to {self.canonical_path}")
 
@@ -157,11 +156,11 @@ class Task_Transformers:
             @staticmethod
             def transform(task_from, filename_filters=['.*']):
                 log.debug("Transforming to S3 File Upload")
-                filename = task_from.filename
+                filename = task_from.filepath.name
                 if not any_regex_matches(str(filename), filename_filters):
                     return
                 filepath = task_from.filepath
-                downlink_id = task_from.ground_id
+                downlink_id = task_from.downlink_id
                 file_size = task_from.file_size
                 s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{downlink_id}/{filename}"
                 return Tasks.S3_File_Upload(task_from.ID, aws_bucket,
