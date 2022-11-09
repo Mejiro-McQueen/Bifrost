@@ -34,6 +34,9 @@ from ait.core import cfg, cmd, dmc, evr, log, tlm
 from ait.core.tlm import FieldList
 from ait.core.alarms import Alarm_State, Alarm_Check
 
+pass_number = ait.config.get('sunrise.pass_number')
+
+
 class AITDBResult:
     """AIT Database result wrapper.
 
@@ -340,6 +343,7 @@ class InfluxDBBackend(GenericBackend):
 
         # TODO: Python 3.9 -> tags = tags | alarm_tags
         tags = {**alarm_tags, **tags}
+        tags['pass_number'] = pass_number
 
         time.format = 'iso'
         time = time.datetime.isoformat("T") + "Z"

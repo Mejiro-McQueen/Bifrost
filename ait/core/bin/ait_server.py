@@ -15,6 +15,14 @@ import argparse
 
 from ait.core.server import Server
 
+def running():
+    lock_file = os.open("/tmp/ait_server.lock", os.O_WRONLY | os.O_CREAT)
+    try:
+        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        already_running = False
+    except IOError:
+        already_running = True
+    return already_running
 
 def main():
     ap = argparse.ArgumentParser(
@@ -32,11 +40,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-def running():
-    lock_file = os.open(f"/tmp/ait_server.lock", os.O_WRONLY | os.O_CREAT)
-    try:
-        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        already_running = False
-    except IOError:
-        already_running = True
-    return already_running
+

@@ -159,8 +159,8 @@ class FieldList(collections.Sequence):
 
         elif self._defn.units == 'binary': # Special case for raw data
             x = bytes(a)
-            x = str(base64.b64encode(x))
-            return x
+            #x = base64.b64encode(x)
+            return str(x)
 
         else:
             log.debug(f"{self._defn.name} Converting to CSV string")
