@@ -44,6 +44,7 @@ from ait.core import api, dtype, log, tlm
 from ait.core.server.plugin import Plugin
 from ait.core.message_types import MessageType
 from ait.dsn.plugins.Graffiti import Graphable, Node_Type, Node
+from ait.core import alarms
 
 
 class ManagedWebSocket():
@@ -1181,9 +1182,14 @@ class AITOpenMctPlugin(Plugin,
         :param mct_pkt: OpenMCT telem packet
         :return: True if message sent to web-socket, False otherwise
         """
-        if mws.is_alive and (mws.accepts_packet(pkt_id) or mws.subscribe_all_packets):
+        #print(packet_metadata)
+        alarm = any(alarms.Alarm_State[field['state']] is not alarms.Alarm_State.GREEN for field in packet_metadata['field_alarms'].values())
+        if mws.is_alive and (mws.accepts_packet(pkt_id) or mws.subscribe_all_packets or alarm):
             # Collect only fields the subscription cares about
-            subscribed_pkt = mws.create_subscribed_packet(mct_pkt)
+            if alarm:
+                subscribed_pkt = mct_pkt
+            else:
+                subscribed_pkt = mws.create_subscribed_packet(mct_pkt)
             # If that new packet still has fields, stringify and send
             if subscribed_pkt:
                 metadata = {k:v for (k,v) in packet_metadata.items() if k not in ["user_data_field", "decoded_packet", "packet_name"] }
