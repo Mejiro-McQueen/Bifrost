@@ -7,6 +7,7 @@ from tqdm import tqdm
 import ait
 import re
 import importlib
+import os
 
 downlink_path = Path(ait.config.get('sunrise.downlink_path'))
 pass_number = ait.config.get('sunrise.pass_number')
@@ -27,6 +28,7 @@ class Task_Message(ABC):
         self.name = self.name()
         self.filepath = Path(filepath)
         self.final = False  # Task is finalized. Do not execute, do not apply transformations, do not track.
+        self.nofork = False # Taskmanager will not fork to service this task
 
     def __repr__(self):
         return str(self.__dict__)
@@ -100,11 +102,13 @@ class Tasks:
             self.postprocessor = postprocessor
             self.measurement = None
             self.df = None
+            self.nofork = False
 
         def execute(self):
             self.measurement, self.df = self.postprocessor(self.filepath)
             self.result = self.df
             self.final = True
+            log.debug(f"New {self.measurement}")
 
     class Untar(Task_Message):
 
@@ -119,7 +123,8 @@ class Tasks:
                     self.result = self.filepath
                     log.debug(f"Successfully extracted {self.result}")
                 except Exception as e:
-                    log.error(f"Task ID: {self.ID} {self.filepath} could not be untarred: {e} ")
+                    log.error(f"Task ID: {self.ID} {self.filepath} could not be untarred: {e} ")                
+                os.sync()
 
         def execute(self):
             self.decompress()
@@ -127,6 +132,7 @@ class Tasks:
     class Bz2_Decompress(Task_Message):
         def __init__(self, ID, filepath):
             Task_Message.__init__(self, ID, filepath)
+            self.nofork = False
 
         def execute(self):
             self.decompress()
@@ -141,7 +147,9 @@ class Tasks:
                         log.debug("Successfully decompressed {self.result}")
                 except Exception as e:
                     log.warn(f"Task ID:{self.ID} {self.filepath} could not be decompressed: {e}")
-
+                f.flush()
+                f.close()
+                os.sync()
 
 class Tansformer(ABC):
     @abstractmethod
