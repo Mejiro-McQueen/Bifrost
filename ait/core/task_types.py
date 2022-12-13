@@ -46,13 +46,13 @@ class Tasks:
                      file_reassembler=None):
             Task_Message.__init__(self, downlink_id, filepath)
             self.downlink_id = downlink_id
-            self.md5_pass = False
+            self.md5_file = ""
             self.sv_name = sv_name
             self.file_reassembler = file_reassembler
             self.file_size = file_size
 
         def subset_map(self):
-            a = {"md5_pass": self.md5_pass,
+            a = {"md5_pass": str(self.md5_file),
                  "filepath": str(self.filepath)}
             return a
 
@@ -151,6 +151,7 @@ class Tasks:
                 f.close()
                 os.sync()
 
+
 class Tansformer(ABC):
     @abstractmethod
     def transform(task_from, associations=[]):
@@ -164,6 +165,8 @@ class Task_Transformers:
             @staticmethod
             def transform(task_from, filename_filters=['.*']):
                 log.debug("Transforming to S3 File Upload")
+                if not task_from.result:
+                    return
                 filename = task_from.filepath.name
                 if not any_regex_matches(str(filename), filename_filters):
                     return
@@ -171,9 +174,19 @@ class Task_Transformers:
                 downlink_id = task_from.downlink_id
                 file_size = task_from.file_size
                 s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{downlink_id}/{filename}"
-                return Tasks.S3_File_Upload(task_from.ID, aws_bucket,
-                                            filepath, s3_path, aws_region,
-                                            downlink_id, file_size)
+
+                res = []
+                upload_file = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
+                                                   filepath, s3_path, aws_region,
+                                                   downlink_id, file_size)
+                res.append(upload_file)
+
+                if task_from.md5_file:
+                    upload_md5 = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
+                                                      str(task_from.md5_file), s3_path, aws_region,
+                                                      downlink_id, file_size)
+                    res.append(upload_md5)
+                return res
 
         class Untar(Tansformer):
             @staticmethod
