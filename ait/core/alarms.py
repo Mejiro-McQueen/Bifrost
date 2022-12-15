@@ -51,9 +51,9 @@ class Alarm_Check():
     def get_alarm_state(cls, packet_name, packet_field, value):
         alarm_associations = cls.alarm_map.get(packet_name, {}).get(packet_field, None)
         if alarm_associations is None:
-            log.debug((f"could not find alarms for {packet_name}:{packet_field}"
-                       f"check {cls.alarm_filepath}. "
-                       f"assuming state is {Alarm_State.GREEN}"))
+            # log.debug((f"could not find alarms for {packet_name}:{packet_field}"
+            #           f"check {cls.alarm_filepath}. "
+            #           f"assuming state is {Alarm_State.GREEN}"))
             return Alarm_State.GREEN
 
         for color in Alarm_State:
@@ -105,15 +105,15 @@ class Alarm_Check():
             return Alarm_Result(instant_state, False)
 
         elif instant_state is Alarm_State.BLUE:
-            log.info(f"{packet_name}:{field} is in notify state {instant_state}")
+            #log.info(f"{packet_name}:{field} is in notify state {instant_state}")
             return Alarm_Result(instant_state, False)
 
         elif instant_state is Alarm_State.RED or instant_state is Alarm_State.YELLOW:
             if (all((i is Alarm_State.RED or i is Alarm_State.YELLOW) for i in threshold_states)):
-                log.warn(f"Packet: {packet_name} field: {field} with value {value} has triggered its threshold and is in {instant_state}")
+                #log.warn(f"Packet: {packet_name} field: {field} with value {value} has triggered its threshold and is in {instant_state}")
                 return Alarm_Result(instant_state, True)
             else:
-                log.warn(f"{packet_name}:{field} is in {instant_state} but has not triggered threshold")
+                #log.warn(f"{packet_name}:{field} is in {instant_state} but has not triggered threshold")
                 return Alarm_Result(instant_state, False)
 
     def __call__(self, packet_name, field, value):
