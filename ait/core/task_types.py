@@ -42,10 +42,10 @@ class Tasks:
 
     class File_Reassembly(Task_Message):
         """ This task is run automatically with ID = downlink ID"""
-        def __init__(self, filepath, downlink_id, sv_name="Chessmaster-Hex", file_size=0,
+        def __init__(self, filepath, ground_tag, sv_name="Chessmaster-Hex", file_size=0,
                      file_reassembler=None):
-            Task_Message.__init__(self, downlink_id, filepath)
-            self.downlink_id = downlink_id
+            Task_Message.__init__(self, ground_tag, filepath)
+            self.ground_tag = ground_tag
             self.md5_file = ""
             self.sv_name = sv_name
             self.file_reassembler = file_reassembler
@@ -64,11 +64,11 @@ class Tasks:
         Request FileManager to upload local path to S3 bucket.
         If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
         """
-        def __init__(self, ID, bucket, filepath, s3_path, s3_region, downlink_id, file_size):
+        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag, file_size):
             Task_Message.__init__(self, ID, filepath)
             self.bucket = bucket
             self.s3_path = s3_path
-            self.downlink_id = downlink_id
+            self.ground_tag = ground_tag
             self.s3_region = s3_region
             self.metadata = None
             self.canonical_path = None
@@ -171,20 +171,22 @@ class Task_Transformers:
                 if not any_regex_matches(str(filename), filename_filters):
                     return
                 filepath = task_from.filepath
-                downlink_id = task_from.downlink_id
+                ground_tag = task_from.ground_tag
                 file_size = task_from.file_size
-                s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{downlink_id}/{filename}"
+                s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{ground_tag}/{filename}"
 
                 res = []
                 upload_file = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
                                                    filepath, s3_path, aws_region,
-                                                   downlink_id, file_size)
+                                                   ground_tag, file_size)
                 res.append(upload_file)
 
                 if task_from.md5_file:
+                    filename = task_from.md5_file.name
+                    s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{ground_tag}/{filename}"
                     upload_md5 = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
                                                       str(task_from.md5_file), s3_path, aws_region,
-                                                      downlink_id, file_size)
+                                                      ground_tag, file_size)
                     res.append(upload_md5)
                 return res
 
