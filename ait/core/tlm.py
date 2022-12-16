@@ -561,11 +561,8 @@ class Packet:
                 defn = self._defn.derivationmap[fieldname]
             else:
                 defn = self._defn.fieldmap[fieldname]
-
             def adjust_dictionary(dynamic_length):
                 skip = True
-                #l, h = defn.bytes
-                #log.warn(f"{self._defn.name} New Offset {dynamic_field_len}")
                 for (k, v) in self._defn.fieldmap.items():
                     if skip:
                         C = ''
@@ -577,7 +574,7 @@ class Packet:
                         l, _ = v._bytes
                         v._bytes = [l, l + dynamic_length - 1]
                         offset = l + dynamic_length
-                        log.warn(f"FINAL: {k} -> {v.bytes} => {self._data[v.slice()]}")
+                        log.warn(f"{Fore.RED} FINAL: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
                         continue
                     if not skip:
                         l2 = offset
@@ -585,7 +582,7 @@ class Packet:
                         offset = h2 + 1
                         v._bytes = [l2, h2]
                         log.warn(f"{Fore.GREEN} NEW: {k} -> {v._bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
-                    log.warn(f"FINAL: {k} -> {v.bytes}  {self._data[v.slice()]}")
+                    #log.warn(f"FINAL: {k} -> {v.bytes}  {self._data[v.slice()]}")
 
             def extract_dynamic_string():
                 dynamic_length = self[defn.dynamic]
@@ -595,20 +592,26 @@ class Packet:
                 return s
 
             if defn.dynamic and not isinstance(defn.type, dtype.ArrayType) and defn.type.string:
-                #log.warn(" ")
-                #log.warn("DYNAMIC: STRING")
-                #log.warn(defn.name)
-                dynamic_length = self[defn.dynamic]  # Get that converted value
+                log.error(" ")
+                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic string {Style.RESET_ALL}")
+                dynamic_length = self[defn.dynamic]
+                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found new dynamic_length {dynamic_length} {Style.RESET_ALL}")
                 adjust_dictionary(dynamic_length)
                 return extract_dynamic_string()
 
             if isinstance(defn.type, dtype.ArrayType) and index is None:
-                #log.info("STATIC ARRAY")
-                if defn.dynamic:  # TODO Change this to dynamic_length in telemetry dict
-                    dynamic_length = self[defn.dynamic]  # Get that converted value
-                #    log.warn(f"{self._defn.name} Found dynamic array length {dynamic_length}")
+                log.error(" ")
+                if defn.dynamic:
+                    dynamic_length = self[defn.dynamic]
+                    log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic array {Style.RESET_ALL}")
+                    
                 elif defn.type.nelems:  # Handle fixed array types like U[n]
                     dynamic_length = defn.type.nelems
+                    log.warn(f"{Fore.YELLOW} {self._defn.name} for field {fieldname} found static array {Style.RESET_ALL}")
+                else:
+                    log.error("WTF")
+                    exit()
+                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found new dynamic_length {dynamic_length} {Style.RESET_ALL}")
                 p = createFieldList(self, defn, raw, dynamic_length)  # noqa
                 adjust_dictionary(dynamic_length)
                 return p
