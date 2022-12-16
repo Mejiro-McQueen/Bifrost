@@ -223,10 +223,6 @@ class DictUtils(object):
         #    mct_pkt_value_dict[ait_field_id] = tlm_pt_value
 
         for (field_name, val) in ait_pkt.items():
-            if isinstance(val, tlm.FieldList):
-                val = val.canonical_form()
-            elif isinstance(val, bytes):
-                val = val.decode("ascii").rstrip("\x00")
             mct_pkt_value_dict[field_name] = val
         return mct_dict
 

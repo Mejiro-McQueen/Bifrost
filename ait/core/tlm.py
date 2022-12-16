@@ -106,82 +106,6 @@ class DNToEUConversion(json.SlotSerializer):
         return result
 
 
-class FieldList(collections.Sequence):
-    """FieldList
-
-    FieldLists encapsulate a packet field array so that it behaves
-    like a Python list (or more generally a sequence) when accessed.
-
-    A FieldList should not be created directly.  It's created internally
-    by the private Packet field accessor _getattr().
-    """
-
-    __slots__ = ["_defn", "_packet", "_raw", "_dynamic_length"]
-
-    def __init__(self, packet, defn, raw, dynamic_length=None):
-        self._packet = packet
-        self._defn = defn
-        self._raw = raw
-        self._dynamic_length = dynamic_length - 1
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, collections.Sequence)
-            and len(self) == len(other)
-            and all([i == j for (i, j) in zip(self, other)])
-            )
-
-    def __getitem__(self, key):
-        # Key is actually the index into the array?
-        return self._packet._getattr(self._defn.name, self._raw, key)
-
-    def __len__(self):
-        return self._defn.type.nelems
-
-    def __str__(self):
-        return str(self.canonical_form())
-
-    def canonical_form(self):
-        field_name = self._defn.name
-        #log.warn("PIPPPPPPPA")
-        log.warn(field_name)
-        if self._dynamic_length is not None:  # Zero is a valid value
-            #log.warn("DYNAMIC SIZE ARRAY")
-            #log.warn(self._dynamic_length)
-            a = (self[0:self._dynamic_length+1])
-            #log.warn('OK!!')
-        else:
-            #log.warn("FIXED SIZE ARRAY")
-            a = (i for i in self)
-        val = ""
-
-        if "bytes" in field_name or 'md5' in field_name:
-            log.debug(f"{self._defn.name} Got bytes or md5 in field name")
-            accum = 0
-            for i in a:
-                accum = (accum << 8) + i
-            val = str(hex(accum))
-            log.debug(f"{self._defn.name} FieldList Bytes => {field_name}: {val}")
-
-        elif self._defn.units == 'binary': # Special case for raw data
-            x = bytes(a)
-            #x = base64.b64encode(x)
-            return str(x)
-
-        else:
-            log.warn(f"{self._defn.name} Converting to CSV string")
-            a = list(a)
-            if a:
-                val = str(a.pop(0))
-                for i in a:
-                    val += ", " + str(i)
-            else:
-                val = "NULL"  # Valid Value
-        #log.warn("REEE")
-        #log.warn(val)
-        return val
-
-
 class DerivationDefinition(json.SlotSerializer):
     """DerivationDefinition
 
@@ -373,21 +297,18 @@ class FieldDefinition(json.SlotSerializer):
             if index is not None and isinstance(self.type, dtype.ArrayType):
                 value = self.type.decode(bytes[self.slice()], index, raw)
             else:
-                #log.error("WHAT THE FUCK")
-                #log.info(self)
-                #print(self.type, bytes[self.slice()], len(bytes[self.slice()]))
                 value = self.type.decode(bytes[self.slice()], raw)
         except IndexError as e:
             log.error(e)
             log.error(self)
             raise e
         except struct.error as e:
+            log.error(self)
             log.error(e)
-            #log.error(self)
             raise e
         except Exception as e:
-            log.error(e)
             log.error(self)
+            log.error(e)
             raise e
 
         # Apply bit mask if needed
@@ -561,60 +482,75 @@ class Packet:
                 defn = self._defn.derivationmap[fieldname]
             else:
                 defn = self._defn.fieldmap[fieldname]
+
             def adjust_dictionary(dynamic_length):
+                log.info(f"{Back.CYAN} Adjusting packet {Back.YELLOW} {self._defn.name} {Back.CYAN} induced by dnyamic field: {Back.MAGENTA} {fieldname} with value {Back.GREEN} {dynamic_length} {Back.RESET}")
+                log.info(f"Packet Byte Reference: {self._data}")
                 skip = True
                 for (k, v) in self._defn.fieldmap.items():
                     if skip:
-                        C = ''
+                        C = Style.DIM
                     else:
                         C = Fore.CYAN
                     log.warn(f"{C} OLD: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
                     if (k == fieldname):
+                        # Adjust this dynamic entry by changing its type and byte offsets.
                         skip = False
                         l, _ = v._bytes
-                        v._bytes = [l, l + dynamic_length - 1]
-                        offset = l + dynamic_length
-                        log.warn(f"{Fore.RED} FINAL: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
+                        if isinstance(v._type, dtype.ArrayType):
+                            t_2 = dtype.ArrayType(v._type.type, dynamic_length)
+                            v._type = t_2
+                        elif isinstance(v._type, dtype.PrimitiveType) and v._type.string:
+                            t_2 = dtype.PrimitiveType(f'S{dynamic_length}')
+                            v._type = t_2
+                        v._bytes = [l, l + (v.nbytes) - 1]
+                        offset = l + (v.nbytes)
+                        log.warn(f"{Fore.RED} Adjusted: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
                         continue
                     if not skip:
+                        # For the rest of the dictionary, just shift all byte offsets from where the adjustment occured
+                        # TODO Dictionary is not well defined: [12,12] == 12, this may cause problems
                         l2 = offset
                         h2 = l2 + v.nbytes - 1
                         offset = h2 + 1
                         v._bytes = [l2, h2]
                         log.warn(f"{Fore.GREEN} NEW: {k} -> {v._bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
-                    #log.warn(f"FINAL: {k} -> {v.bytes}  {self._data[v.slice()]}")
-
-            def extract_dynamic_string():
-                dynamic_length = self[defn.dynamic]
-                l, h = defn.bytes
-                s = self._data[slice(l, l + dynamic_length)].decode("ASCII")
-                log.warn(f"Variable String {fieldname} {defn.type} {dynamic_length} {s}")
-                return s
 
             if defn.dynamic and not isinstance(defn.type, dtype.ArrayType) and defn.type.string:
-                log.error(" ")
-                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic string {Style.RESET_ALL}")
                 dynamic_length = self[defn.dynamic]
-                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found new dynamic_length {dynamic_length} {Style.RESET_ALL}")
-                adjust_dictionary(dynamic_length)
-                return extract_dynamic_string()
+                log.error(" ")
+                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic string with lenth {dynamic_length} {Style.RESET_ALL}")
 
-            if isinstance(defn.type, dtype.ArrayType) and index is None:
+                try:
+                    adjust_dictionary(dynamic_length)
+                    string = defn.decode(self._data, raw, index)
+                except Exception as e:
+                    log.error(f"FREEEEE {e}")
+                    exit()
+                return string
+
+            elif isinstance(defn.type, dtype.ArrayType) and index is None:
                 log.error(" ")
                 if defn.dynamic:
                     dynamic_length = self[defn.dynamic]
                     log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic array {Style.RESET_ALL}")
-                    
+                    try:
+                        adjust_dictionary(dynamic_length)
+                    except Exception as e:
+                        log.error(f"FREEEEE {e}")
+                        exit()
                 elif defn.type.nelems:  # Handle fixed array types like U[n]
                     dynamic_length = defn.type.nelems
-                    log.warn(f"{Fore.YELLOW} {self._defn.name} for field {fieldname} found static array {Style.RESET_ALL}")
-                else:
-                    log.error("WTF")
+                    log.warn(f"{Fore.YELLOW} {self._defn.name} for field {fieldname} found static array {defn.type} {Style.RESET_ALL}")
+                try:
+                    # Handle Dynamic Decoding
+                    val = [defn.decode(self._data, raw, i) for i in range(dynamic_length)]
+                    val = self.canonical_form(val, defn.name)
+                    return val
+                except Exception as e:
+                    log.error(f"Dynamic Field Decode Error: {e}")
                     exit()
-                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found new dynamic_length {dynamic_length} {Style.RESET_ALL}")
-                p = createFieldList(self, defn, raw, dynamic_length)  # noqa
-                adjust_dictionary(dynamic_length)
-                return p
+                    return "NICO NICO NI!"
 
             try:
                 if defn.when is None or defn.when.eval(self):
@@ -629,14 +565,11 @@ class Packet:
             except IndexError as e:
                 raise e
             except struct.error as e:
-                log.error(f'REEEEEEEE {e}')
-                log.error(f'{Fore.RED} YOU ARE DEAD {Style.RESET_ALL}')
-                exit()
+                log.error(f'Regular Decode Error: {e}')
                 raise e
             except Exception as e:
                 log.warn(f"error applying dntoeu: {e}")
                 raise e
-
         return value
 
     def __contains__(self, fieldname):
@@ -652,47 +585,49 @@ class Packet:
             log.error(e)
             raise e
 
-    def canonical_form(self, val):
-        #print(type(val))
-        #print(val)
-        if isinstance(val, FieldList):
-            #print("DDKFOPDSKF")
-            val = val.canonical_form()
+    def canonical_form(self, val, field_name=''):
+        #print(val, " ", type(val), ", ", field_name)
+        try:
+            if isinstance(val, str):
+                val = val
+            elif ("bytes" in field_name or 'md5' in field_name) and isinstance(val, list):
+                accum = 0
+                for i in val:
+                    accum = (accum << 8) + i
+                val = str(hex(accum))
 
-        elif isinstance(val, str):
-            #print(val)
-            val = val
+            elif isinstance(val, list):
+                val = ', '.join((str(i) for i in val))
 
-        elif isinstance(val, bytes):
-            val = val.decode("ascii")
+            elif isinstance(val, bytes):
+                val = val.decode("ascii")
 
-        elif val is None:
-            val = "None"
+            elif val is None:
+                val = "None"
 
-        elif math.isnan(val):
-            val = "NaN"
+            elif math.isnan(val):
+                val = "NaN"
 
-        elif math.isinf(val):
-            val = float(sys.maxsize)
+            elif math.isinf(val):
+                val = float(sys.maxsize)
 
-        else:
-            return val
+        except Exception as e:
+            log.error(f"REEEEEEEEE {e}")
+            exit()
 
+        #log.error(f"Fieldname {field_name} Was {a} is now {val} with type {type(val)}")
         return val
 
     def items(self):
         for field_name in self.keys():
             try:
-                #print("getting val")
                 val = getattr(self, field_name)
                 #print(f"Got val: {val}")
-                val = self.canonical_form(val)
+                val = self.canonical_form(val, field_name)
                 #print(f"Got canonical: {type(val)}")
                 yield (field_name, val)
             except struct.error as e:
-                #log.error(f"struct error: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                if val:
-                    return val
+                log.error(f"struct error: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
                 return {}
             except ValueError as e:
                 log.error(f"ValueError: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
