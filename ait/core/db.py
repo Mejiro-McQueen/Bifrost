@@ -22,8 +22,6 @@ from abc import ABCMeta, abstractmethod
 import datetime as dt
 import importlib
 import itertools
-import math
-import sys
 import os.path
 
 import sqlite3
@@ -31,7 +29,6 @@ import sqlite3
 import ait
 from ait.core import cfg, cmd, dmc, evr, log, tlm
 
-from ait.core.tlm import FieldList
 from ait.core.alarms import Alarm_State, Alarm_Check
 
 pass_number = ait.config.get('sunrise.pass_number')
