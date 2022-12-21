@@ -293,22 +293,34 @@ class FieldDefinition(json.SlotSerializer):
         FieldDefinition is an ArrayType), then only the element(s) at
         the specified position(s) will be decoded.
         """
+        q = bytes[self.slice()]
         try:
             if index is not None and isinstance(self.type, dtype.ArrayType):
                 value = self.type.decode(bytes[self.slice()], index, raw)
             else:
                 value = self.type.decode(bytes[self.slice()], raw)
         except IndexError as e:
+            log.info("FIX ME!!!")
             log.error(e)
             log.error(self)
+            log.error(bytes)
+            log.error("")
+            log.error(q)
             raise e
         except struct.error as e:
+            log.info("FIX ME!!!")
             log.error(self)
             log.error(e)
+            log.error(bytes)
+            log.error("")
+            log.error(q)
             raise e
         except Exception as e:
             log.error(self)
             log.error(e)
+            log.error(bytes)
+            log.error("")
+            log.error(q)
             raise e
 
         # Apply bit mask if needed
@@ -417,11 +429,11 @@ class Packet:
         """Returns the value of the given packet field name."""
         try:
             res = self._getattr(fieldname)
+            return res
         except Exception as e:
             #print("REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEe")
             log.error(e)
             raise e
-        return res
 
     def __setattr__(self, fieldname, value):
         """Sets the given packet field name to value."""
@@ -484,15 +496,15 @@ class Packet:
                 defn = self._defn.fieldmap[fieldname]
 
             def adjust_dictionary(dynamic_length):
-                log.info(f"{Back.CYAN} Adjusting packet {Back.YELLOW} {self._defn.name} {Back.CYAN} induced by dnyamic field: {Back.MAGENTA} {fieldname} with value {Back.GREEN} {dynamic_length} {Back.RESET}")
-                log.info(f"Packet Byte Reference: {self._data}")
+                #log.info(f"{Back.CYAN} Adjusting packet {Back.YELLOW} {self._defn.name} {Back.CYAN} induced by dnyamic field: {Back.MAGENTA} {fieldname} with value {Back.GREEN} {dynamic_length} {Back.RESET}")
+                #log.info(f"Packet Byte Reference: {self._data}")
                 skip = True
                 for (k, v) in self._defn.fieldmap.items():
                     if skip:
                         C = Style.DIM
                     else:
                         C = Fore.CYAN
-                    log.warn(f"{C} OLD: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
+                    #log.warn(f"{C} OLD: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
                     if (k == fieldname):
                         # Adjust this dynamic entry by changing its type and byte offsets.
                         skip = False
@@ -505,7 +517,7 @@ class Packet:
                             v._type = t_2
                         v._bytes = [l, l + (v.nbytes) - 1]
                         offset = l + (v.nbytes)
-                        log.warn(f"{Fore.RED} Adjusted: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
+                        #log.warn(f"{Fore.RED} Adjusted: {k} -> {v.bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
                         continue
                     if not skip:
                         # For the rest of the dictionary, just shift all byte offsets from where the adjustment occured
@@ -514,12 +526,12 @@ class Packet:
                         h2 = l2 + v.nbytes - 1
                         offset = h2 + 1
                         v._bytes = [l2, h2]
-                        log.warn(f"{Fore.GREEN} NEW: {k} -> {v._bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
+                        #log.warn(f"{Fore.GREEN} NEW: {k} -> {v._bytes} => {self._data[v.slice()]} {Style.RESET_ALL}")
 
             if defn.dynamic and not isinstance(defn.type, dtype.ArrayType) and defn.type.string:
                 dynamic_length = self[defn.dynamic]
-                log.error(" ")
-                log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic string with lenth {dynamic_length} {Style.RESET_ALL}")
+                #log.error(" ")
+                #log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic string with lenth {dynamic_length} {Sty acle.RESET_ALL}")
 
                 try:
                     adjust_dictionary(dynamic_length)
@@ -530,10 +542,10 @@ class Packet:
                 return string
 
             elif isinstance(defn.type, dtype.ArrayType) and index is None:
-                log.error(" ")
+                #log.error(" ")
                 if defn.dynamic:
                     dynamic_length = self[defn.dynamic]
-                    log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic array {Style.RESET_ALL}")
+                    #log.warn(f"{Fore.MAGENTA} {self._defn.name} for field {fieldname} found dynamic array {Style.RESET_ALL}")
                     try:
                         adjust_dictionary(dynamic_length)
                     except Exception as e:
@@ -541,7 +553,7 @@ class Packet:
                         exit()
                 elif defn.type.nelems:  # Handle fixed array types like U[n]
                     dynamic_length = defn.type.nelems
-                    log.warn(f"{Fore.YELLOW} {self._defn.name} for field {fieldname} found static array {defn.type} {Style.RESET_ALL}")
+                    #log.warn(f"{Fore.YELLOW} {self._defn.name} for field {fieldname} found static array {defn.type} {Style.RESET_ALL}")
                 try:
                     # Handle Dynamic Decoding
                     val = [defn.decode(self._data, raw, i) for i in range(dynamic_length)]
@@ -549,8 +561,7 @@ class Packet:
                     return val
                 except Exception as e:
                     log.error(f"Dynamic Field Decode Error: {e}")
-                    exit()
-                    return "NICO NICO NI!"
+                    raise e
 
             try:
                 if defn.when is None or defn.when.eval(self):
@@ -628,17 +639,17 @@ class Packet:
                 yield (field_name, val)
             except struct.error as e:
                 log.error(f"struct error: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                return {}
+                raise e
             except ValueError as e:
                 log.error(f"ValueError: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                return {}
+                raise e
             except IndexError as e:
                 log.error(f"IndexError: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                return {}
+                raise e
             except Exception as e:
                 log.error(f"Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                return {}
-   
+                raise e
+
     def keys(self):
         for i in self._defn.fieldmap:
             yield i
