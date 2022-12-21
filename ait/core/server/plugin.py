@@ -154,7 +154,7 @@ class Plugin(ZMQInputClient):
         super(Plugin, self).__init__(**zmq_args)
 
     def __repr__(self):
-        return f"<Plugin name={self.name}>"
+        return f"{self.name}"
 
     @abstractmethod
     def process(self, input_data, topic=None):

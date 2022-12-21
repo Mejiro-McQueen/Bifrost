@@ -552,7 +552,10 @@ class AITOpenMctPlugin(Plugin,
             message = {topic: message}
             message['sv_name'] = ait.config.get('sunrise.sv_name')
             message['sv_identifier'] = ait.config.get('sunrise.sv_identifier')
-            if topic == MessageType.FILE_DOWNLINK_RESULT.name or topic == MessageType.FILE_DOWNLINK_UPDATE.name:
+            if topic in [MessageType.FILE_DOWNLINK_RESULT.name,
+                         MessageType.FILE_DOWNLINK_UPDATE.name,
+                         MessageType.FM_PAYLOAD_UPDATE.name,
+                         MessageType.FM_RETRANSMIT_CL.name]:
                 self._process_downlink_update_msg(message)
             else:
                 self._process_variable_msg(message)

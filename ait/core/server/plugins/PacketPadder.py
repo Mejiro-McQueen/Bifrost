@@ -18,15 +18,18 @@ class PacketPadder(Plugin,
                           node_type=Graffiti.Node_Type.PLUGIN)
         return [n]
         
-    def process(self, data, topic=None):
-        if not data:
+    def process(self, cmd_struct, topic=None):
+        if not cmd_struct:
             log.error(f"received no data from {topic}.")
-        if not check_data_field_size(data):
+        if not check_data_field_size(cmd_struct.payload_bytes):
             log.error(f"initial data from {topic} is oversized.")
-        if len(data) < self.size_pad_octets:
-            fill = bytearray(self.size_pad_octets - len(data))
-            data = data + fill
-        if not check_data_field_size(data):
-            log.error(f"created oversized data.")
-        log.debug(f"publishing payload of size: {len(data)}")
-        self.publish(data)
+            cmd_struct.payload_size_valid = False
+        if len(cmd_struct.payload_bytes) < self.size_pad_octets:
+            fill = bytearray(self.size_pad_octets - len(cmd_struct.payload_bytes))
+            cmd_struct.payload_bytes += fill
+        if not check_data_field_size(cmd_struct.payload_bytes):
+            log.error("Created oversized payload.")
+            cmd_struct.payload_size_valid = False
+        log.debug(f"publishing payload of size: {len(cmd_struct.payload_bytes)}")
+        cmd_struct.processors.append(self.__class__)
+        self.publish(cmd_struct)
