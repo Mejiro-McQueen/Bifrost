@@ -303,24 +303,24 @@ class FieldDefinition(json.SlotSerializer):
             log.info("FIX ME!!!")
             log.error(e)
             log.error(self)
-            log.error(bytes)
+            #log.error(bytes)
             log.error("")
-            log.error(q)
+            #log.error(q)
             raise e
         except struct.error as e:
             log.info("FIX ME!!!")
             log.error(self)
             log.error(e)
-            log.error(bytes)
+            #log.error(bytes)
             log.error("")
-            log.error(q)
+            #log.error(q)
             raise e
         except Exception as e:
             log.error(self)
             log.error(e)
-            log.error(bytes)
+            #log.error(bytes)
             log.error("")
-            log.error(q)
+            #log.error(q)
             raise e
 
         # Apply bit mask if needed
@@ -639,16 +639,16 @@ class Packet:
                 yield (field_name, val)
             except struct.error as e:
                 log.error(f"struct error: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                raise e
+                return {}
             except ValueError as e:
                 log.error(f"ValueError: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                raise e
+                return {}
             except IndexError as e:
                 log.error(f"IndexError: Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                raise e
+                return {}
             except Exception as e:
                 log.error(f"Could not decode a field {field_name} with value {val}. Abandoning packet: {e}")
-                raise e
+                return {}
 
     def keys(self):
         for i in self._defn.fieldmap:
