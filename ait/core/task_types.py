@@ -101,7 +101,7 @@ class Tasks:
 
         def execute(self, s3_resource):
             try:
-                with tqdm(total=self.file_size, unit='bytes', unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}") as pbar:
+                with tqdm(total=self.file_size, unit='bytes', unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}", colour='YELLOW') as pbar:
                     response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath),
                                                                            self.s3_path,
                                                                            Callback=lambda b: pbar.update(b),
@@ -114,7 +114,7 @@ class Tasks:
                 self.result = str(e)
                 return
             self.canonical_s3_url()
-            log.info(f"Task ID {self.ID} -> {self.filepath} uploaded to {self.canonical_path}")
+            #log.info(f"Task ID {self.ID} -> {self.filepath} uploaded to {self.canonical_path}")
 
         def subset_map(self):
             return self.metadata

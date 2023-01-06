@@ -601,6 +601,9 @@ class Packet:
         try:
             if isinstance(val, str):
                 val = val
+
+            elif field_name == 'file_data':
+                val = str(bytes(val))
             elif ("bytes" in field_name or 'md5' in field_name) and isinstance(val, list):
                 accum = 0
                 for i in val:
