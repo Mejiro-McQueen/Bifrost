@@ -74,9 +74,9 @@ class Tasks:
     class S3_File_Upload(Task_Message):
         """
         Request FileManager to upload local path to S3 bucket.
-        If this task has ID 0, then it was run automatically by AIT from a File_Reassembly_Task.
+        Task ID -1 denotes an internal task
         """
-        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag, file_size):
+        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag=-1):
             Task_Message.__init__(self, ID, filepath)
             self.bucket = bucket
             self.s3_path = s3_path
@@ -84,7 +84,7 @@ class Tasks:
             self.s3_region = s3_region
             self.metadata = None
             self.canonical_path = None
-            self.file_size = file_size
+            self.file_size = os.path.getsize(filepath)
             self.tags = {'pass_id': pass_number,
                          'sv_name': sv_name,
                          'ground_tag': ground_tag,
@@ -204,13 +204,12 @@ class Task_Transformers:
                     return
                 filepath = task_from.filepath
                 ground_tag = task_from.ground_tag
-                file_size = task_from.file_size
                 s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{ground_tag}/{filename}"
 
                 res = []
                 upload_file = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
                                                    filepath, s3_path, aws_region,
-                                                   ground_tag, file_size)
+                                                   ground_tag)
                 res.append(upload_file)
 
                 if task_from.md5_file:
@@ -218,7 +217,7 @@ class Task_Transformers:
                     s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{ground_tag}/{filename}"
                     upload_md5 = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
                                                       str(task_from.md5_file), s3_path, aws_region,
-                                                      ground_tag, file_size)
+                                                      ground_tag)
                     res.append(upload_md5)
                 return res
 
