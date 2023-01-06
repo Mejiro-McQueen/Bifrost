@@ -10,8 +10,8 @@ import importlib
 import os
 from urllib import parse
 
-downlink_path = Path(ait.config.get('sunrise.downlink_path'))
 pass_number = ait.config.get('sunrise.pass_number')
+downlink_path = Path(ait.config.get('sunrise.data_path')) / str(pass_number) / 'downlink'
 sv_name = ait.config.get('sunrise.sv_name')
 aws_bucket = ait.config.get('aws.bucket')
 aws_region = ait.config.get('aws.region')
