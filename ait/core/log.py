@@ -58,7 +58,6 @@ class LogFormatter(logging.Formatter):
 
         Creates and returns a new LogFormatter.
         """
-        format = "%(asctime)s | %(levelname)-8s | %(module)s -> %(funcName)s => %(message)s"
         format = "%(asctime)s | %(levelname)-8s | Line %(lineno)d | %(module)s -> %(funcName)s => %(message)s"
         datefmt = self.DATEFMT
         logging.Formatter.__init__(self, format, datefmt)
