@@ -50,5 +50,7 @@ class MessageType(Enum):
     CHECK_FRAME_OUT_OF_SEQUENCE = 'Out of sequence Frames'
     CHECK_FRAME_ECF_MISMATCH = 'Mismatch of Frame ECF'
 
+    SUNRISE_PAYLOAD_ACTIVE_FILE_DOWNLINK_INFO = 'See fgicd'
+
     def to_tuple(self):
         return (self.name, self.value)
