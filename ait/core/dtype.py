@@ -430,6 +430,11 @@ class ArrayType(object):
 
         return bytearray().join(self.type.encode(arg) for arg in args)
 
+    def validate(self, primitive, messages, name):
+        res = [self.fundamental_type().validate(i, messages=messages) for i in primitive]
+        res = (all_err := all(res) and (elem_err := len(res) == self.nelems))
+        return res
+
     @staticmethod
     def parse(name):
         """parse(name) -> [typename | None, nelems | None]
