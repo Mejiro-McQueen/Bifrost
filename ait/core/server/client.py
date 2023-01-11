@@ -18,8 +18,10 @@ import time
 import csv
 from pathlib import Path
 from datetime import datetime
+import os
 
-PROFILE = False
+PROFILE = os.getenv('PROFILE')
+
 
 class ZMQClient(object):
     """
