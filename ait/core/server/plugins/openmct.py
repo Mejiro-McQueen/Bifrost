@@ -223,10 +223,6 @@ class DictUtils(object):
         #    mct_pkt_value_dict[ait_field_id] = tlm_pt_value
 
         for (field_name, val) in ait_pkt.items():
-            if isinstance(val, tlm.FieldList):
-                val = val.canonical_form()
-            elif isinstance(val, bytes):
-                val = val.decode("ascii").rstrip("\x00")
             mct_pkt_value_dict[field_name] = val
         return mct_dict
 
@@ -556,7 +552,10 @@ class AITOpenMctPlugin(Plugin,
             message = {topic: message}
             message['sv_name'] = ait.config.get('sunrise.sv_name')
             message['sv_identifier'] = ait.config.get('sunrise.sv_identifier')
-            if topic == MessageType.FILE_DOWNLINK_RESULT.name or topic == MessageType.FILE_DOWNLINK_UPDATE.name:
+            if topic in [MessageType.FILE_DOWNLINK_RESULT.name,
+                         MessageType.FILE_DOWNLINK_UPDATE.name,
+                         MessageType.FM_PAYLOAD_UPDATE.name,
+                         MessageType.FM_RETRANSMIT_CL.name]:
                 self._process_downlink_update_msg(message)
             else:
                 self._process_variable_msg(message)
@@ -1305,7 +1304,6 @@ class AITOpenMctPlugin(Plugin,
             mws.unsubscribe_field(msg_parts[1])
         elif directive in MessageType._member_names_:
             msg = " ".join(msg_parts[1:]).strip()
-            #log.info(f"Got MessageType {msg} for directive {directive}!")
             self.publish(msg, topic=directive)
         else:
             log.warn(f"Unexpected web-socket message: {message}")

@@ -36,6 +36,8 @@ class MessageType(Enum):
     CL_EXECUTE = 'Have command loader execute\n a command from the dicionary,\n message is a command\n or uplink directory'
     CL_VALIDATE = 'Have command loader verify\n a script, command, or\n uplink path'
     CL_RESULT = 'Contains result of Command Loader action\n {(action, argument): (BOOL, [Errors])}'
+    CL_UPLINK_COMPLETE = 'Completed CmdMetaData'
+    CL_UPLINK_STATUS = 'Status of Uplink Command'
     FM_TASK_DONE = 'Generic task done\n for File Manager'
     FM_DL_STATUS = "Status of completed\n downlinks and S3 uploads"
     SLE_CLTU_RESTART = "Force an SLE CLTU Interface Restart"
@@ -44,6 +46,11 @@ class MessageType(Enum):
     SLE_RAF_STOP = "Force an SLE RAF Interface to stop"
     FM_RETRANSMIT_CL = 'A file downlink retransmission suggestion CL'
     FM_MISSED_DOWNLINK_INIT = 'Missed File Initalize Downlink Reply'
+    FM_PAYLOAD_UPDATE = 'Payload Updates'
+    CHECK_FRAME_OUT_OF_SEQUENCE = 'Out of sequence Frames'
+    CHECK_FRAME_ECF_MISMATCH = 'Mismatch of Frame ECF'
+
+    SUNRISE_PAYLOAD_ACTIVE_FILE_DOWNLINK_INFO = 'See fgicd'
 
     def to_tuple(self):
         return (self.name, self.value)
