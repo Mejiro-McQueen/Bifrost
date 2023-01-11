@@ -14,6 +14,14 @@ from ait.core import log
 import ait.core.server.utils as utils
 from ait.core.message_types import MessageType
 import traceback
+import time
+import csv
+from pathlib import Path
+from datetime import datetime
+import os
+
+PROFILE = os.getenv('PROFILE')
+
 
 class ZMQClient(object):
     """
@@ -103,11 +111,19 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
 
         gevent.Greenlet.__init__(self)
 
+        if PROFILE:
+            Path('./performance/').mkdir(exist_ok=True)
+            self.performance_log = open(f'./performance/{str(self)}.csv', 'w')
+            self.csv_writer = csv.writer(self.performance_log)
+            self.csv_writer.writerow(['time_utc', 'process', 'topic', 'time_s', 'msg_len'])
+
     def _run(self):
         try:
             while True:
                 gevent.sleep(0)
                 msg = self.sub.recv_multipart()
+                if PROFILE:
+                    t1 = time.process_time()
                 topic, message = utils.decode_message(msg)
                 if topic is None or message is None:
                     log.error(f"{self} received invalid topic or message {(message, topic)}. Skipping")
@@ -123,6 +139,9 @@ class ZMQInputClient(ZMQClient, gevent.Greenlet):
                         e = "Unknown"
                     self.publish(f"Error: {e}", MessageType.PANIC.name)
                     sys.exit(f"Encountered exception while processing message. Now exiting.")
+                if PROFILE:
+                    t2 = time.process_time() - t1
+                    self.csv_writer.writerow([datetime.now(), self, topic, t2, len(bytes(msg[1]))])
         except Exception as e:
             log.error(
                 "Exception raised in {} while receiving messages: {}".format(self, e)

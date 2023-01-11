@@ -30,6 +30,7 @@ import logging.handlers
 import ait
 import ait.core
 from ait.core.sdls_utils import SDLS_Type, get_sdls_type
+import tqdm
 
 NOTICE = logging.INFO + 1
 COMMAND = logging.INFO + 2
@@ -57,8 +58,7 @@ class LogFormatter(logging.Formatter):
 
         Creates and returns a new LogFormatter.
         """
-        format = "%(asctime)s | %(levelname)-8s | %(module)s -> %(funcName)s => %(message)s"
-        # format = "%(asctime)s | %(levelname)-8s | Line %(lineno)d | %(module)s -> %(funcName)s => %(message)s"
+        format = "%(asctime)s | %(levelname)-8s | Line %(lineno)d | %(module)s -> %(funcName)s => %(message)s"
         datefmt = self.DATEFMT
         logging.Formatter.__init__(self, format, datefmt)
 
@@ -168,8 +168,8 @@ def add_local_handlers(logger):
     """
     termlog = logging.StreamHandler()
     termlog.setFormatter(LogFormatter())
-
-    logger.addHandler(termlog)
+    
+    #logger.addHandler(termlog)
     logger.addHandler(SysLogHandler())
     logger.addHandler(SysLogHandler(("localhost", 2514)))
 
@@ -221,8 +221,9 @@ def init():
 
     logger.addFilter(SecurityFilter())
     logger.addFilter(AnnoyingFilter())
-    add_local_handlers(logger)
+    #add_local_handlers(logger)
     add_remote_handlers(logger)
+    logger.addHandler(TqdmLoggingHandler())
 
 
 reinit = init
@@ -338,30 +339,43 @@ class SecurityFilter(logging.Filter):
         else:
             return True
 
+
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+        self.setFormatter(LogFormatter())
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
 class AnnoyingFilter(logging.Filter):
-    black_list_phrases = ["specifies nonexistent path",
-                          "No handlers specified for",
-                          "Added outbound stream",
-                          "No plugin outputs specified for",
-                          "Starting <Plugin name=",
-                          "Subscribing <Plugin name=",
-                          "Added plugin <Plugin name=",
-                          "Added inbound stream",
-                          "Starting <ZMQStream name=",
-                          "Subscribing <ZMQStream name=",
-                          "Starting",
-                          "Current pickle file loaded:",
-                          "Published message from",
-                          "received message from",
-                          "to allow ZeroQM connection to complete",
-                          "Added config for deferred plugin",
-                          "Spawning <PluginsProcess",
-                          "No plugin inputs specified",
-                          "No streams available for telemetry API",
-                          "Replacing ait",
-                          "Running AIT OpenMCT Plugin",
-                          "[OpenMCT Database Configuration]",
-                          ]
+    black_list_phrases = set(["specifies nonexistent path",
+                             "No handlers specified for",
+                             "Added outbound stream",
+                             "No plugin outputs specified for",
+                             "Added plugin",
+                             "Added inbound stream",
+                             "Starting",
+                             "Subscribing",
+                             "Starting",
+                             "Current pickle file loaded:",
+                             "Published message from",
+                             "received message from",
+                             "to allow ZeroQM connection to complete",
+                             "Added config for deferred plugin",
+                             "Spawning <PluginsProcess",
+                             "No plugin inputs specified",
+                             "No streams available for telemetry API",
+                             "Replacing ait",
+                             "Running AIT OpenMCT Plugin",
+                             "[OpenMCT Database Configuration]"],
+                             )
     black_list_modules = ["dmc"]
     def filter(self, record):
         msg = record.getMessage()

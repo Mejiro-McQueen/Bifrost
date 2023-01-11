@@ -27,7 +27,7 @@ from io import IOBase
 
 import ait
 from ait.core import json, util, log
-
+import ast
 
 MAX_CMD_WORDS = 54
 
@@ -124,7 +124,8 @@ class ArgDefn(json.SlotSerializer, object):
 
         if type(value) == str and self.enum and value in self.enum:
             value = self.enum[value]
-        return self.type.encode(*value) if type(value) in [tuple, list] else self.type.encode(value)
+        res = self.type.encode(value)
+        return res
 
     def slice(self, offset=0):
         """Returns a Python slice object (e.g. for array indexing) indicating
@@ -148,6 +149,9 @@ class ArgDefn(json.SlotSerializer, object):
         """
         valid = True
         primitive = value
+        if isinstance(value, str) and primitive[0] == '[' and primitive[-1] == ']':
+            value = ast.literal_eval(value)
+            primitive = value
 
         def log(msg):
             if messages is not None:
@@ -161,16 +165,22 @@ class ArgDefn(json.SlotSerializer, object):
             else:
                 primitive = int(self.enum[value])
 
-        if self.type:
-            if self.type.validate(primitive, messages, self.name) is False:
-                valid = False
+        if self.type or isinstance(value, list):
+            valid = self.type.validate(primitive, messages, self.name)
 
         if self.range:
-            if primitive < self.range[0] or primitive > self.range[1]:
-                valid = False
-                args = (self.name, str(primitive), self.range[0], self.range[1])
-                log("%s value '%s' out of range [%d, %d]." % args)
+            def check_prim_range(i):
+                valid = True
+                if i < self.range[0] or i > self.range[1]:
+                    valid = False
+                    args = (self.name, str(i), self.range[0], self.range[1])
+                    log("%s value '%s' out of range [%d, %d]." % args)
+                return valid
 
+            if isinstance(value, list):
+                valid = all([check_prim_range(i) for i in value])
+            else:
+                valid = check_prim_range(primitive)
         return valid
 
 
@@ -449,24 +459,32 @@ class CmdDict(dict):
 
     def create(self, name, *args, **kwargs):
         """Creates a new AIT command with the given arguments."""
+        # Gets called on validate, for high IQ reasons.
         tokens = name.split()
-
-        if len(tokens) > 1 and (len(args) > 0 or len(kwargs) > 0):
+        if len(tokens) > 1 and (args or kwargs):
             msg = "A Cmd may be created with either positional arguments "
             msg += "(passed as a string or a Python list) or keyword "
             msg += "arguments, but not both."
             raise TypeError(msg)
 
         if len(tokens) > 1:
+            # Tokens = args if not args but also name, but not if kwargs or args.
+            # This is what I call a low IQ move
+            args = []
             name = tokens[0]
-            args = [util.toNumber(t, t) for t in tokens[1:]]
+            for t in tokens[1:]:
+                if isinstance(t, str) and t[0] == '[' and t[-1] == ']':
+                    args.append(ast.literal_eval(t))
+                else:
+                    args.append(util.toNumber(t, t))
 
         defn = self.get(name, None)
 
         if defn is None:
             raise TypeError("Unrecognized command: %s" % name)
 
-        return createCmd(defn, *args, **kwargs)  # noqa
+        r = createCmd(defn, *args, **kwargs)
+        return r
 
     def decode(self, bytes):
         """Decodes the given bytes according to this AIT Command

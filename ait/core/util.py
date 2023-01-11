@@ -33,6 +33,7 @@ import pickle
 
 import ait
 from ait.core import log
+import pprint
 
 
 class ObjectCache(object):
@@ -425,24 +426,24 @@ def toRepr(obj):  # noqa
     Converts the Python object to a string representation of the kind
     often returned by a class __repr__() method.
     """
-    args = []
+    pprinter = pprint.PrettyPrinter(indent=4, compact=False, sort_dicts=False)
+
     names = []
+    res = {}
 
     if hasattr(obj, "__dict__"):
-        names += getattr(obj, "__dict__").keys()  # noqa
+       names += getattr(obj, "__dict__").keys()  # noqa
+
     if hasattr(obj, "__slots__"):
         names += getattr(obj, "__slots__")  # noqa
 
-    for name in names:
-        value = getattr(obj, name)
-        if value is not None:
-            if type(value) is str:
-                if len(value) > 32:
-                    value = value[0:32] + "..."
-                value = "'" + value + "'"
-        args.append("%s=%s" % (name, str(value)))
+    names = [i for i in names if i not in ['constants', 'functions', 'globals', 'name']]
+    names.insert(0, 'name')
+    for i in names:
+        res[i] = getattr(obj, i)
 
-    return "%s(%s)" % (obj.__class__.__name__, ", ".join(args))
+    q = pprinter.pformat(res)
+    return q
 
 
 def toStringDuration(duration):  # noqa
