@@ -1,10 +1,9 @@
 import ait.core
-from ait.core.server.plugins import Plugin
+from ait.core.server import Plugin
 from ait.core import log
 from ait.dsn.sle.frames import AOSTransFrame
 from binascii import crc_hqx
 from dataclasses import dataclass
-import ait.dsn.plugins.Graffiti as Graffiti
 import ait
 from ait.core.message_types import MessageType as MT
 
@@ -36,8 +35,7 @@ class AOS_Tagger():
     crc_func = crc_hqx
     frame_counter_modulo = 16777216  # As defined in CCSDS ICD: https://public.ccsds.org/Pubs/732x0b4.pdf
 
-    def __init__(self, publish):
-        self.publish = publish
+    def __init__(self, queue=None):
         self.absolute_counter = 0
         vcids = ait.config.get('dsn.sle.aos.virtual_channels')._config  # what a low IQ move...
         vcids['Unknown'] = None
@@ -87,7 +85,7 @@ class AOS_Tagger():
                 tagged_frame.out_of_sequence = True
                 log.warn(f"Out of Sequence Frame VCID {tagged_frame.vcid}: expected {expected_vcid_count} but got {tagged_frame.channel_counter}")
                 self.vcid_loss_count[tagged_frame.vcid] += 1
-                self.publish(self.vcid_loss_count, MT.CHECK_FRAME_OUT_OF_SEQUENCE.name)
+                #self.publish(self.vcid_loss_count, MT.CHECK_FRAME_OUT_OF_SEQUENCE.name)
 
             self.hot[tagged_frame.vcid] = True
             self.vcid_sequence_counter[tagged_frame.vcid] = tagged_frame.channel_counter
@@ -110,28 +108,39 @@ class AOS_Tagger():
         return tagged_frame
 
 
-class AOS_FEC_Check_Plugin(Plugin, Graffiti.Graphable):
+class AOS_FEC_Check_Plugin(Plugin):
     '''
     Check if a AOS frame fails a Forward Error Correction Check
     '''
-    def __init__(self, inputs=None, outputs=None, zmq_args=None, **kwargs):
-        super().__init__(inputs, outputs, zmq_args)
-        self.tagger = AOS_Tagger(self.publish)
-        Graffiti.Graphable.__init__(self)
+    def __init__(self):
+        super().__init__()
+        self.tagger = AOS_Tagger()
+        self.start()
+        
+    async def reconfigure(self, message):
+        await super().reconfigure(message)
+        await self.rabbit_declare_queue('Telemetry.AOS.Frame.Tagged')
+        print('sos')
+        await self.rabbit_declare_queue('Telemetry.AOS.Raw')
+        await self.rabbit_register_callback('Telemetry.AOS.Raw', self.process)
 
-    def process(self, data, topic=None):
+        
+    async def process(self, data):
+        print(data)
         if not data:
             log.error("received no data!")
             return
 
         tagged_frame = self.tagger.tag_frame(data)
-        self.publish(tagged_frame)
+        await self.rabbit_publish('Telemetry',
+                                  'Telemetry.AOS.Frame.Tagged',
+                                  tagged_frame)
         return tagged_frame
 
-    def graffiti(self):
-        n = Graffiti.Node(self.self_name,
-                          inputs=[(i, "Raw AOS Frames") for i in self.inputs],
-                          outputs=[],
-                          label="Check Forward Error Correction Field",
-                          node_type=Graffiti.Node_Type.PLUGIN)
-        return [n]
+    # def graffiti(self):
+    #     n = Graffiti.Node(self.self_name,
+    #                       inputs=[(i, "Raw AOS Frames") for i in self.inputs],
+    #                       outputs=[],
+    #                       label="Check Forward Error Correction Field",
+    #                       node_type=Graffiti.Node_Type.PLUGIN)
+    #     return [n]

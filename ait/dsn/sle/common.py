@@ -54,11 +54,11 @@ import socket
 import struct
 import time
 
-import gevent
-import gevent.queue
-import gevent.socket
-import gevent.select
-import gevent.monkey; gevent.monkey.patch_all()
+# import gevent
+# import gevent.queue
+# import gevent.socket
+# import gevent.select
+# import gevent.monkey; gevent.monkey.patch_all()
 
 import pyasn1.error
 from pyasn1.codec.ber.encoder import encode

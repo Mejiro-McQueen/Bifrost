@@ -90,7 +90,7 @@ class Subscription:
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
                 await self.output_queue.put((self.topic, self.routing_key, data))
-                print(f'{self.output_queue.qsize()=}')
+                #print(f'{self.output_queue.qsize()=}')
                 
     async def start(self):
         if self.hostname:
