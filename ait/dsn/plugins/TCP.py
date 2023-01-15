@@ -10,7 +10,7 @@ from ait.core.message_types import MessageType
 from sunrise.CmdMetaData import CmdMetaData
 import asyncio
 from time import sleep
-
+from colorama import Fore
 
 class Mode(enum.Enum):
     TRANSMIT = enum.auto()
@@ -34,7 +34,8 @@ class Subscription:
     receive_size_bytes: int = 64000
     ip: str = field(init=False)
     log_header: str = field(init=False)
-    data_queue: asyncio.Queue = asyncio.Queue() 
+    input_queue: asyncio.Queue = asyncio.Queue()
+    output_queue: asyncio.Queue = asyncio.Queue()
 
     def __post_init__(self):
         """
@@ -71,28 +72,27 @@ class Subscription:
 
         while self.reader or self.writer:
             if self.mode is Mode.TRANSMIT:
-                data = await self.data_queue.get()
+                data = await self.input_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
-                await self.rabbit_publish(self.topic, self.routing_key, data)
-        
+                await self.output_queue.put((self.topic, self.routing_key, data))
+
     async def handle_client(self):
         self.reader, self.writer = \
             await asyncio.open_connection(self.hostname, self.port)
         while self.reader or self.writer:
             if self.mode is Mode.TRANSMIT:
-                data = await self.data_queue.get()
+                data = await self.input_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
-                await self.rabbit_publish(self.topic, self.routing_key, data)
+                await self.output_queue.put((self.topic, self.routing_key, data))
+                print(f'{self.output_queue.qsize()=}')
                 
-    async def start(self, rabbit_publish):
-        print("I'M UP!")
-        self.rabbit_publish = rabbit_publish
+    async def start(self):
         if self.hostname:
             await self.handle_client()
         else:
@@ -140,40 +140,38 @@ class TCP_Manager(Plugin):
         """
         super().__init__()
         self.tasks = []
-        self.cancel = True
-        #a = self.loop.create_task(self.service_read_sockets())
+        self.output_queue = asyncio.Queue()
+        self.loop.create_task(self.service_reads())
         self.start()
-    
+        
         #self.supervisor_tree = Greenlet.spawn(self.supervisor_tree)
         #Graffiti.Graphable.__init__(self)
 
+    async def service_reads(self):
+        while True:
+            topic, key, msg = await self.output_queue.get()
+            await self.rabbit_publish(topic, key, msg)
+
     async def reconfigure(self, message):
         await super().reconfigure(message)
-        print(f'{message=}')
         self.topic_subscription_map = defaultdict(list)
 
         self.tasks = []
         for (server_name, metadata) in self.subscriptions.items():
-            sub = Subscription(server_name=server_name, **metadata)
+            sub = Subscription(server_name=server_name, **metadata,
+                               output_queue=self.output_queue)
             self.topic_subscription_map[metadata['routing_key']].append(sub)
-            self.tasks.append(sub.start(self.rabbit_publish))
-            await asyncio.create_task(sub.start(self.rabbit_publish))
+            #print('a')
+            await self.rabbit_declare_topic(sub.topic)
+            #print('a2')
+            await self.rabbit_declare_queue(sub.routing_key)
+            #print('b')
             await self.rabbit_queue_bind(sub.topic, sub.routing_key, sub.routing_key)
-        print(f'LETS GO! {self.tasks=}')
-        self.cancel = True
-
-    async def service_read_sockets(self):
-        print('fig')
-        while True:
-            print("ZOZ")
-            if self.cancel:
-                while self.tasks:
-                    task = self.tasks.pop()
-                    await task.cancel()
-            asyncio.gather(*self.tasks)
-            self.cancel = False
-            await asyncio.sleep(5)
-                
+            #print('c')
+            asyncio.create_task(sub.start())
+            #print('d')
+        #print(f'{Fore.YELLOW} LETS GO! {self.tasks=} {Fore.RESET}')
+        
             
     def process(self, data, topic=None):
         """
