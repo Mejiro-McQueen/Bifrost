@@ -119,14 +119,14 @@ class AOS_FEC_Check_Plugin(Plugin):
         
     async def reconfigure(self, message):
         await super().reconfigure(message)
-        await self.rabbit_declare_queue('Telemetry.AOS.Frame.Tagged')
+        a = 'Telemetry.AOS.Raw'
+        await self.rabbit_declare_queue(a)
+        await self.rabbit_register_callback(a, self.process)
         print('sos')
-        await self.rabbit_declare_queue('Telemetry.AOS.Raw')
-        await self.rabbit_register_callback('Telemetry.AOS.Raw', self.process)
+        print(self.consumers)
 
-        
     async def process(self, data):
-        print(data)
+        #print(data)
         if not data:
             log.error("received no data!")
             return
