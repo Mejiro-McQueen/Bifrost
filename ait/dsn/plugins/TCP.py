@@ -54,8 +54,6 @@ class Subscription:
         """
         if hasattr(self, 'writer'):
             self.writer.close()
-        if hasattr(self, 'reader'):
-            self.reader.close()
 
     def status_map(self):
         m = {'topic': self.topic,
@@ -138,6 +136,7 @@ class TCP_Manager(Plugin):
         Forks a process to handle receiving subscriptions.
         Creates auxillary socket maps and lists.
         """
+        self.hot = False # Prevent hot reload when config changes until we fixup reconfigure
         super().__init__()
         self.tasks = []
         self.output_queue = asyncio.Queue()
@@ -153,6 +152,8 @@ class TCP_Manager(Plugin):
             await self.rabbit_publish(topic, key, msg)
 
     async def reconfigure(self, message):
+        if self.hot:
+            return
         await super().reconfigure(message)
         self.topic_subscription_map = defaultdict(list)
 
@@ -171,7 +172,7 @@ class TCP_Manager(Plugin):
             asyncio.create_task(sub.start())
             #print('d')
         #print(f'{Fore.YELLOW} LETS GO! {self.tasks=} {Fore.RESET}')
-        
+        self.hot = True
             
     def process(self, data, topic=None):
         """

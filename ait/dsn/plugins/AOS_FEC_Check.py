@@ -111,20 +111,17 @@ class AOS_Tagger():
 class AOS_FEC_Check_Plugin(Plugin):
     '''
     Check if a AOS frame fails a Forward Error Correction Check
+
+    PROTIP: Do add more than 1 callback per queue here
     '''
     def __init__(self):
-        super().__init__()
         self.tagger = AOS_Tagger()
+        super().__init__()
         self.start()
         
     async def reconfigure(self, message):
         await super().reconfigure(message)
-        a = 'Telemetry.AOS.Raw'
-        await self.rabbit_declare_queue(a)
-        await self.rabbit_register_callback(a, self.process)
-        print('sos')
-        print(self.consumers)
-
+      
     async def process(self, data):
         #print(data)
         if not data:
@@ -132,9 +129,9 @@ class AOS_FEC_Check_Plugin(Plugin):
             return
 
         tagged_frame = self.tagger.tag_frame(data)
-        await self.rabbit_publish('Telemetry',
-                                  'Telemetry.AOS.Frame.Tagged',
-                                  tagged_frame)
+        # await self.rabbit_publish('Telemetry',
+        #                           'Telemetry.AOS.Frame.Tagged',
+        #                           tagged_frame)
         return tagged_frame
 
     # def graffiti(self):
