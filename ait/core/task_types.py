@@ -10,9 +10,9 @@ import importlib
 import os
 from urllib import parse
 
-pass_number = ait.config.get('sunrise.pass_number')
-downlink_path = Path(ait.config.get('sunrise.data_path')) / str(pass_number) / 'downlink'
+pass_number = ait.config.get('sunrise.pass_id')
 sv_name = ait.config.get('sunrise.sv_name')
+downlink_path = Path(ait.config.get('sunrise.data_path')) / str(pass_number) / sv_name / 'downlink'
 aws_bucket = ait.config.get('aws.bucket')
 aws_region = ait.config.get('aws.region')
 aws_profile = ait.config.get('aws.profile')
@@ -76,7 +76,8 @@ class Tasks:
         Request FileManager to upload local path to S3 bucket.
         Task ID -1 denotes an internal task
         """
-        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag=-1):
+        # Use binary to specify object put instead of file put
+        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag=-1, binary=None):
             Task_Message.__init__(self, ID, filepath)
             self.bucket = bucket
             self.s3_path = s3_path
@@ -89,6 +90,7 @@ class Tasks:
                          'sv_name': sv_name,
                          'ground_tag': ground_tag,
                          }
+            self.binary = binary
 
         def canonical_s3_url(self):
             if not self.result:  # S3 upload returns none when successful, contains an exception otherwise
@@ -102,11 +104,17 @@ class Tasks:
         def execute(self, s3_resource):
             try:
                 with tqdm(total=self.file_size, unit='bytes', unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}", colour='YELLOW') as pbar:
-                    response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath),
-                                                                           self.s3_path,
-                                                                           Callback=lambda b: pbar.update(b),
-                                                                           ExtraArgs={"Tagging": parse.urlencode(self.tags)})
-                if response:
+                    if not self.binary:
+                        response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath),
+                                                                               self.s3_path,
+                                                                               Callback=lambda b: pbar.update(b),
+                                                                               ExtraArgs={"Tagging": parse.urlencode(self.tags)})
+                    else:
+                        object = s3_resource.Object(self.bucket, self.s3_path)
+                        response = object.put(Body=self.binary,
+                                              #Callback=lambda b: pbar.update(b),
+                                              Tagging=parse.urlencode(self.tags))
+                if response and not self.binary:
                     self.result = response
                     log.error(self.result)
             except Exception as e:
