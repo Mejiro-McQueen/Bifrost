@@ -103,17 +103,21 @@ class Tasks:
 
         def execute(self, s3_resource):
             try:
-                with tqdm(total=self.file_size, unit='bytes', unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}", colour='YELLOW') as pbar:
-                    if not self.binary:
+                if not self.binary:
+                    with tqdm(total=self.file_size, unit='bytes',
+                              unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}",
+                              colour='YELLOW') as pbar:
+                    
                         response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath),
                                                                                self.s3_path,
                                                                                Callback=lambda b: pbar.update(b),
                                                                                ExtraArgs={"Tagging": parse.urlencode(self.tags)})
-                    else:
-                        object = s3_resource.Object(self.bucket, self.s3_path)
-                        response = object.put(Body=self.binary,
-                                              #Callback=lambda b: pbar.update(b),
-                                              Tagging=parse.urlencode(self.tags))
+                else:
+                    object = s3_resource.Object(self.bucket, self.s3_path)
+                    response = object.put(Body=self.binary,
+                                          #Callback=lambda b: pbar.update(b),
+                                          Tagging=parse.urlencode(self.tags))
+                        
                 if response and not self.binary:
                     self.result = response
                     log.error(self.result)
