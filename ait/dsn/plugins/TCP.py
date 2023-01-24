@@ -26,7 +26,6 @@ class Subscription:
     """
     server_name: str
     topic: str
-    routing_key: str
     hostname: str
     port: int
     mode: Mode
@@ -75,7 +74,7 @@ class Subscription:
                 await self.writer.drain()
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
-                await self.output_queue.put((self.topic, self.routing_key, data))
+                await self.output_queue.put((self.topic, data))
 
     async def handle_client(self):
         self.reader, self.writer = \
@@ -87,7 +86,7 @@ class Subscription:
                 await self.writer.drain()
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
-                await self.output_queue.put((self.topic, self.routing_key, data))
+                await self.output_queue.put((self.topic, data))
                 #print(f'{self.output_queue.qsize()=}')
                 
     async def start(self):
@@ -148,33 +147,26 @@ class TCP_Manager(Plugin):
 
     async def service_reads(self):
         while True:
-            topic, key, msg = await self.output_queue.get()
-            await self.rabbit_publish(topic, key, msg)
+            topic, msg = await self.output_queue.get()
+            await self.publish(topic, msg)
 
-    async def reconfigure(self, message):
+    async def reconfigure(self, topic, message, reply):
         if self.hot:
             return
-        await super().reconfigure(message)
+        await super().reconfigure(topic, message, reply)
         self.topic_subscription_map = defaultdict(list)
 
         self.tasks = []
         for (server_name, metadata) in self.subscriptions.items():
             sub = Subscription(server_name=server_name, **metadata,
                                output_queue=self.output_queue)
-            self.topic_subscription_map[metadata['routing_key']].append(sub)
-            #print('a')
-            await self.rabbit_declare_topic(sub.topic)
-            #print('a2')
-            await self.rabbit_declare_queue(sub.routing_key)
-            #print('b')
-            await self.rabbit_queue_bind(sub.topic, sub.routing_key, sub.routing_key)
-            #print('c')
+            self.topic_subscription_map[metadata['topic']].append(sub)
             asyncio.create_task(sub.start())
             #print('d')
         #print(f'{Fore.YELLOW} LETS GO! {self.tasks=} {Fore.RESET}')
         self.hot = True
             
-    def process(self, data, topic=None):
+    def process(self, topic, message, data):
         """
         Send data to the transmit Subscriptions associated with topic.
 

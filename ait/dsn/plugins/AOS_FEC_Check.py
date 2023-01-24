@@ -119,20 +119,16 @@ class AOS_FEC_Check_Plugin(Plugin):
         super().__init__()
         self.start()
         
-    async def reconfigure(self, message):
-        await super().reconfigure(message)
+    async def reconfigure(self, topic, message, reply):
+        await super().reconfigure(topic, message, reply)
       
-    async def process(self, data):
-        #print(data)
-        if not data:
+    async def process(self, topic, message, reply):
+        if not message:
             log.error("received no data!")
             return
 
-        tagged_frame = self.tagger.tag_frame(data)
-        # await self.rabbit_publish('Telemetry',
-        #                           'Telemetry.AOS.Frame.Tagged',
-        #                           tagged_frame)
-        return tagged_frame
+        tagged_frame = self.tagger.tag_frame(message)
+        await self.publish(f'Telemetry.AOS.TaggedFrame.VCID.{tagged_frame.vcid}', tagged_frame)
 
     # def graffiti(self):
     #     n = Graffiti.Node(self.self_name,
