@@ -35,7 +35,8 @@ class AOS_Tagger():
     crc_func = crc_hqx
     frame_counter_modulo = 16777216  # As defined in CCSDS ICD: https://public.ccsds.org/Pubs/732x0b4.pdf
 
-    def __init__(self, queue=None):
+    def __init__(self, publisher=None):
+        self.publish = publisher
         self.absolute_counter = 0
         vcids = ait.config.get('dsn.sle.aos.virtual_channels')._config  # what a low IQ move...
         vcids['Unknown'] = None
@@ -67,7 +68,7 @@ class AOS_Tagger():
                     self.vcid_corrupt_count['Unknown'] += 1
                 else:
                     self.vcid_corrupt_count[tagged_frame.vcid] += 1
-                self.publish(self.vcid_corrupt_count, MT.CHECK_FRAME_ECF_MISMATCH.name)
+                self.publish(MT.CHECK_FRAME_ECF_MISMATCH.name, self.vcid_corrupt_count)
             return
 
         def tag_out_of_sequence():
@@ -85,7 +86,7 @@ class AOS_Tagger():
                 tagged_frame.out_of_sequence = True
                 log.warn(f"Out of Sequence Frame VCID {tagged_frame.vcid}: expected {expected_vcid_count} but got {tagged_frame.channel_counter}")
                 self.vcid_loss_count[tagged_frame.vcid] += 1
-                #self.publish(self.vcid_loss_count, MT.CHECK_FRAME_OUT_OF_SEQUENCE.name)
+                self.publish(MT.CHECK_FRAME_OUT_OF_SEQUENCE.name, self.vcid_loss_count)
 
             self.hot[tagged_frame.vcid] = True
             self.vcid_sequence_counter[tagged_frame.vcid] = tagged_frame.channel_counter
@@ -115,7 +116,7 @@ class AOS_FEC_Check_Plugin(Plugin):
     PROTIP: Do add more than 1 callback per queue here
     '''
     def __init__(self):
-        self.tagger = AOS_Tagger()
+        self.tagger = AOS_Tagger(self.publish)
         super().__init__()
         self.start()
         
@@ -129,11 +130,3 @@ class AOS_FEC_Check_Plugin(Plugin):
 
         tagged_frame = self.tagger.tag_frame(message)
         await self.publish(f'Telemetry.AOS.TaggedFrame.VCID.{tagged_frame.vcid}', tagged_frame)
-
-    # def graffiti(self):
-    #     n = Graffiti.Node(self.self_name,
-    #                       inputs=[(i, "Raw AOS Frames") for i in self.inputs],
-    #                       outputs=[],
-    #                       label="Check Forward Error Correction Field",
-    #                       node_type=Graffiti.Node_Type.PLUGIN)
-    #     return [n]

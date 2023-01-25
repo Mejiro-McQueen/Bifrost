@@ -1,4 +1,4 @@
-from ait.core.server.plugins import Plugin
+from ait.core.server import Plugin
 from ait.core import log
 from ait.dsn.sle.frames import AOSTransFrame, AOSDataFieldType
 from bitstring import BitArray
@@ -13,6 +13,7 @@ class Packet_State(Enum):
     UNDERFLOW = auto()
     SPILLOVER = auto()
     IDLE = auto()
+
 
 class HeaderKeys(Enum):
     PACKET_VERSION_NUMBER = slice(0, 3)

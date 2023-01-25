@@ -146,7 +146,7 @@ class TCP_Manager(Plugin):
         #Graffiti.Graphable.__init__(self)
 
     async def service_reads(self):
-        while True:
+        while self.running:
             topic, msg = await self.output_queue.get()
             await self.publish(topic, msg)
 
