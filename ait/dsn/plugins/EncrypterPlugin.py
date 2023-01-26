@@ -1,18 +1,13 @@
-from gevent import time, Greenlet, monkey
-monkey.patch_all()
 import ait
 from ait.dsn.encrypt.encrypter import EncrypterFactory
-from ait.core.server.plugins import Plugin
+from ait.core.server import Plugin
 from ait.core import log
 import ait.dsn.plugins.TCTF_Manager as tctf
-import ait.dsn.plugins.Graffiti as Graffiti
 from ait.core.sdls_utils import SDLS_Type, get_sdls_type
 from ait.core.message_types import MessageType
 
 
-
-class Encrypter(Plugin,
-                Graffiti.Graphable):
+class Encrypter(Plugin):
     """
     Add the following lines to config.yaml:
 
@@ -24,10 +19,10 @@ class Encrypter(Plugin,
     Then configure the managed parameters in the config.yaml as
     required by the encryption service.
     """
-    def __init__(self, inputs=None, outputs=None, zmq_args=None, restart_delay_s=0, report_time_s=0, **kwargs):
-        super().__init__(inputs, outputs, zmq_args)
-        self.restart_delay_s = restart_delay_s
-        self.report_time_s = report_time_s
+    def __init__(self):
+        super().__init__()
+        self.restart_delay_s = 5
+        self.report_time_s = 10
         self.security_risk = False
         
         # We never expected this plugin to be instantiated
@@ -47,15 +42,18 @@ class Encrypter(Plugin,
             self.encrypter.configure()
             self.encrypter.connect()
             log.info(f"Encryption services started.")
-            self.supervisor = Greenlet.spawn(self.supervisor_tree)
-
-        Graffiti.Graphable.__init__(self)
+            #self.loop.create_task(self.supervisor_tree())
+        self.start()
 
     def __del__(self):
         self.encrypter.close()
         return
+    
+    async def reconfigure(self, topic, message, reply):
+        await super().reconfigure(topic, message, reply)
+        return
 
-    def process(self, cmd_struct, topic=None):
+    async def process(self, topic, cmd_struct, reply):
         if self.security_risk or not topic == "TCTF_Manager":
             # TCTF Manager should have never published to
             # TCTFs to us since we were expecting To oeprate in CLEAR mode.
@@ -110,20 +108,11 @@ class Encrypter(Plugin,
             cmd_struct.payload_bytes = crypt_result.result
             self.publish(cmd_struct)
 
-    def graffiti(self):
-        n = Graffiti.Node(self.self_name,
-                          inputs=[(i, "TCTF Frame") for i in self.inputs],
-                          outputs=[(MessageType.KMC_STATUS.name,
-                                    MessageType.KMC_STATUS.value)],
-                          label="Encrypt/Authenticate TCTF",
-                          node_type=Graffiti.Node_Type.PLUGIN)
-        return [n]
+    async def supervisor_tree(self, msg=None):
 
-    def supervisor_tree(self, msg=None):
-
-        def periodic_report(report_time=5):
+        async def periodic_report(report_time=5):
             while True:
-                time.sleep(report_time)
+                asyncio.sleep(report_time)
                 msg = {'state': self.encrypter.is_connected()}
                 self.publish(msg, MessageType.KMC_STATUS.name)
                 log.debug(msg)
@@ -144,11 +133,11 @@ class Encrypter(Plugin,
             #        self.publish(f"RAF SLE Interface is not active! ",'monitor_high_priority_cltu')
             #        self.handle_restart()
             pass
-        
+    
         if msg:
             high_priority(msg)
             return
         
         if self.report_time_s:
-            reporter = Greenlet.spawn(periodic_report, self.report_time_s)
-        mon = Greenlet.spawn(monitor, self.restart_delay_s)
+            reporter = self.loop.create_task(periodic_report(self.report_time_s))
+        mon = self.loop.create_task(monitor(self.restart_delay_s))
