@@ -1,4 +1,3 @@
-
 import ait.core
 import ait.dsn.sle.tctf as tctf
 from ait.core.server import Plugin
@@ -7,19 +6,6 @@ from enum import Enum, auto
 from ait.core.sdls_utils import SDLS_Type, get_sdls_type
 
 config_prefix = 'dsn.sle.tctf.'
-
-
-# class SDLS_Type(Enum):
-#     CLEAR = auto()
-#     ENC = auto()  # Authenticated Encryption (SDLS)
-#     AUTH = auto()  # Authentication Only (SDLS)
-#     # FINAL is for internal use.
-#     # It is treated the same as CLEAR
-#     # Used by Encrypter to signify that TCTF size check
-#     # should be done against final TCTF size instead of
-#     # the KMC hand off size that it must necessarily violate.
-#     FINAL = auto()
-
 
 class TCTF_Manager(Plugin):
     """
@@ -54,9 +40,8 @@ class TCTF_Manager(Plugin):
                 apply_error_correction_field: True
     """
     
-    def __init__(self, inputs=None, outputs=None, zmq_args=None,
-                 command_subscriber=None, managed_parameters=None, **kwargs):
-        super().__init__(inputs, outputs, zmq_args)
+    def __init__(self):
+        super().__init__()
 
         self.tf_version_num = ait.config.get(config_prefix+'transfer_frame_version_number', None)
         self.bypass = ait.config.get(config_prefix+'bypass_flag', None)
@@ -74,8 +59,9 @@ class TCTF_Manager(Plugin):
             log.info(f"expecting to perform AUTH operations.")
         else:
             log.info(f"expecting to process CLEAR TCTFs only.")
+        self.start()
 
-    def process(self, cmd_struct, topic=None):
+    async def process(self, topic, cmd_struct, reply):
         if not cmd_struct:
             log.error(f"Received no data from {topic}")
             return
@@ -112,6 +98,10 @@ class TCTF_Manager(Plugin):
         self.publish(cmd_struct)
         self.frame_seq_num = (self.frame_seq_num + 1) % 255
         return encoded_frame
+
+    async def reconfigure(self, topic, message, reply):
+        await super().reconfigure(topic, message, reply)
+        return
 
 def get_tctf_size(sdls_type=SDLS_Type.ENC):
     log_header = __name__ + "-> get_tctf_size=>"
