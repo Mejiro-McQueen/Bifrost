@@ -6,6 +6,7 @@ from binascii import crc_hqx
 from dataclasses import dataclass
 import ait
 from ait.core.message_types import MessageType as MT
+from colorama import Fore
 
 STRICT = False
 
@@ -129,4 +130,4 @@ class AOS_FEC_Check_Plugin(Plugin):
             return
 
         tagged_frame = self.tagger.tag_frame(message)
-        await self.publish(f'Telemetry.AOS.TaggedFrame.VCID.{tagged_frame.vcid}', tagged_frame)
+        await self.stream(f'Telemetry.AOS.VCID.{tagged_frame.vcid}.TaggedFrame', tagged_frame)

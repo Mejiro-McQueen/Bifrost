@@ -141,14 +141,11 @@ class TCP_Manager(Plugin):
         self.output_queue = asyncio.Queue()
         self.loop.create_task(self.service_reads())
         self.start()
-        
-        #self.supervisor_tree = Greenlet.spawn(self.supervisor_tree)
-        #Graffiti.Graphable.__init__(self)
 
     async def service_reads(self):
         while self.running:
             topic, msg = await self.output_queue.get()
-            await self.publish(topic, msg)
+            await self.stream(topic, msg)
 
     async def reconfigure(self, topic, message, reply):
         if self.hot:
@@ -162,7 +159,6 @@ class TCP_Manager(Plugin):
                                output_queue=self.output_queue)
             self.topic_subscription_map[metadata['topic']].append(sub)
             asyncio.create_task(sub.start())
-            #print('d')
         #print(f'{Fore.YELLOW} LETS GO! {self.tasks=} {Fore.RESET}')
         self.hot = True
             
@@ -237,7 +233,7 @@ class TCP_Manager(Plugin):
                 for sub_list in self.topic_subscription_map.values():
                     msg += [i.status_map() for i in sub_list]
                 log.debug(msg)
-                self.publish(msg,  MessageType.TCP_STATUS.name)
+                self.stream(msg,  MessageType.TCP_STATUS.name)
 
         def high_priority(msg):
             # self.publish(msg, "monitor_high_priority_cltu")
