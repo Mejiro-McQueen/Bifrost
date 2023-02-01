@@ -76,6 +76,7 @@ class Tasks:
         Request FileManager to upload local path to S3 bucket.
         Task ID -1 denotes an internal task
         """
+        
         # Use binary to specify object put instead of file put
         def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag=-1, binary=None):
             Task_Message.__init__(self, ID, filepath)
@@ -101,19 +102,35 @@ class Tasks:
                                  's3_key': str(self.s3_path),
                                  's3_tags': str(self.tags)}
 
+        def get_mime_type(self):
+            ext = Path(self.filepath).suffix
+            if ext in ['.log', '.cl']:
+                res = 'text/plain'
+            elif ext in ['.json', '.ndjson']:
+                res = 'application/json'
+            else:
+                res = 'binary/octet-stream'
+            return res
+        
         def execute(self, s3_resource):
             try:
-                with tqdm(total=self.file_size, unit='bytes', unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}", colour='YELLOW') as pbar:
-                    if not self.binary:
+                if not self.binary:
+                    with tqdm(total=self.file_size, unit='bytes',
+                              unit_scale=True, desc=f"Task {self.ID} -> S3 Upload => {self.s3_path}",
+                              colour='YELLOW') as pbar:
+                    
                         response = s3_resource.Bucket(self.bucket).upload_file(str(self.filepath),
                                                                                self.s3_path,
                                                                                Callback=lambda b: pbar.update(b),
-                                                                               ExtraArgs={"Tagging": parse.urlencode(self.tags)})
-                    else:
-                        object = s3_resource.Object(self.bucket, self.s3_path)
-                        response = object.put(Body=self.binary,
-                                              #Callback=lambda b: pbar.update(b),
-                                              Tagging=parse.urlencode(self.tags))
+                                                                               ExtraArgs={"Tagging": parse.urlencode(self.tags),
+                                                                                          'ContentType': self.get_mime_type()})
+                else:
+                    object = s3_resource.Object(self.bucket, self.s3_path)
+                    response = object.put(Body=self.binary,
+                                          #Callback=lambda b: pbar.update(b),
+                                          Tagging=parse.urlencode(self.tags),
+                                          ContentType=self.get_mime_type())
+                        
                 if response and not self.binary:
                     self.result = response
                     log.error(self.result)
