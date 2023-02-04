@@ -42,7 +42,6 @@ class TCTF_Manager(Plugin):
     
     def __init__(self):
         super().__init__()
-
         self.tf_version_num = ait.config.get(config_prefix+'transfer_frame_version_number', None)
         self.bypass = ait.config.get(config_prefix+'bypass_flag', None)
         self.cc = ait.config.get(config_prefix+'control_command_flag', None)
@@ -95,7 +94,7 @@ class TCTF_Manager(Plugin):
             log.info("Failed TCTF size check.")
             cmd_struct.payload_size_valid = False
         
-        self.publish(cmd_struct)
+        await self.publish('Uplink.CmdMetaData.TCTF', cmd_struct)
         self.frame_seq_num = (self.frame_seq_num + 1) % 255
         return encoded_frame
 

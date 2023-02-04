@@ -162,67 +162,24 @@ class TCP_Manager(Plugin):
         #print(f'{Fore.YELLOW} LETS GO! {self.tasks=} {Fore.RESET}')
         self.hot = True
             
-    def process(self, topic, message, data):
+    async def process(self, topic, message, reply):
         """
         Send data to the transmit Subscriptions associated with topic.
 
         :returns: data from topic
         """
-        if not data:
+        if not message:
             log.info('Received no data')
             return
         subs = self.topic_subscription_map[topic]
         subs = [sub for sub in subs if sub.mode is Mode.TRANSMIT]
         for sub in subs:
-            if isinstance(data, CmdMetaData):
-                sub.data_queue.put(data.payload_bytes)
+            if isinstance(message, CmdMetaData):
+                sub.data_queue.put(message.payload_bytes)
             else:
-                sub.data_queue.put(data)
-        
-        # if isinstance(data, CmdMetaData):
-        #     self.publish(data, MessageType.CL_UPLINK_COMPLETE.name)
-        # return data
-
-    # def graffiti(self):
-    #     nodes = []
-
-    #     n = Graffiti.Node(self.self_name,
-    #                       inputs=[(i, "PUB/SUB Message") for i in self.inputs],
-    #                       outputs=[],
-    #                       label="",
-    #                       node_type=Graffiti.Node_Type.PLUGIN)
-
-    #     nodes.append(n)
-
-    #     for (topic, subs) in self.topic_subscription_map.items():
-    #         for sub in subs:
-    #             if sub.mode is Mode.TRANSMIT:
-    #                 n = Graffiti.Node(self.self_name,
-    #                                   inputs=[],
-    #                                   outputs=[(sub.hostname,
-    #                                             f"{sub.topic}\n"
-    #                                             f"Port: {sub.port}")],
-    #                                   label="Manage TCP Transmit and Receive",
-    #                                   node_type=Graffiti.Node_Type.TCP_SERVER)
-
-    #             else:  # sub.mode is Mode.RECEIVE:
-    #                 n = Graffiti.Node(self.self_name,
-    #                                   inputs=[(sub.hostname,
-    #                                            f"{sub.topic}\n"
-    #                                            f"Port: {sub.port}")],
-    #                                   outputs=[(sub.topic, "Bytes"),],
-    #                                   label="Manage TCP Transmit and Receive",
-    #                                   node_type=Graffiti.Node_Type.TCP_CLIENT)
-    #             nodes.append(n)
-                
-    #     n = Graffiti.Node(self.self_name,
-    #                       inputs=[],
-    #                       outputs=[(MessageType.TCP_STATUS.name,
-    #                                 MessageType.TCP_STATUS.value)],
-    #                       label="Manage TCP Transmit and Receive",
-    #                       node_type=Graffiti.Node_Type.TCP_CLIENT)
-    #     nodes.append(n)
-    #     return nodes
+                sub.data_queue.put(message)
+        if isinstance(message, CmdMetaData):
+            await self.publish('Uplink.CmdMetaData.Complete', message)
     
     def supervisor_tree(self, msg=None):
         

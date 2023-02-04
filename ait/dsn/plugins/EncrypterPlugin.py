@@ -54,7 +54,7 @@ class Encrypter(Plugin):
         return
 
     async def process(self, topic, cmd_struct, reply):
-        if self.security_risk or not topic == "TCTF_Manager":
+        if self.security_risk or not topic == "Uplink.CmdMetaData.TCTF":
             # TCTF Manager should have never published to
             # TCTFs to us since we were expecting To oeprate in CLEAR mode.
             # If another plugin is attempting to encrypt something through us,
@@ -106,7 +106,7 @@ class Encrypter(Plugin):
         else:
             # Looks good to publish
             cmd_struct.payload_bytes = crypt_result.result
-            self.publish(cmd_struct)
+            await self.publish("Uplink.CmdMetaData.SDLS", cmd_struct)
 
     async def supervisor_tree(self, msg=None):
 
