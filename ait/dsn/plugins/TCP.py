@@ -11,6 +11,7 @@ from sunrise.CmdMetaData import CmdMetaData
 import asyncio
 from time import sleep
 from colorama import Fore
+import traceback
 
 class Mode(enum.Enum):
     TRANSMIT = enum.auto()
@@ -29,12 +30,12 @@ class Subscription:
     hostname: str
     port: int
     mode: Mode
+    read_queue: asyncio.Queue 
+    write_queue: asyncio.Queue
     timeout_seconds: int = 5
     receive_size_bytes: int = 64000
     ip: str = field(init=False)
     log_header: str = field(init=False)
-    input_queue: asyncio.Queue = asyncio.Queue()
-    output_queue: asyncio.Queue = asyncio.Queue()
 
     def __post_init__(self):
         """
@@ -46,11 +47,16 @@ class Subscription:
         self.mode = Mode[self.mode]
         self.sent_counter = 0
         self.receive_counter = 0
+        asyncio.create_task(self.start())
 
     def __del__(self):
+        self.shutdown()
+
+    def shutdown(self):
         """
         Shutdown and close open socket, if any.
         """
+        print(f"Shutting down {self}")
         if hasattr(self, 'writer'):
             self.writer.close()
 
@@ -69,31 +75,41 @@ class Subscription:
 
         while self.reader or self.writer:
             if self.mode is Mode.TRANSMIT:
-                data = await self.input_queue.get()
+                data = await self.write_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
+                
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
-                await self.output_queue.put((self.topic, data))
-
+                await self.read_queue.put((self.topic, data))
+                
+                
     async def handle_client(self):
         self.reader, self.writer = \
             await asyncio.open_connection(self.hostname, self.port)
         while self.reader or self.writer:
             if self.mode is Mode.TRANSMIT:
-                data = await self.input_queue.get()
+                data = await self.write_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
+                
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
-                await self.output_queue.put((self.topic, data))
-                #print(f'{self.output_queue.qsize()=}')
+                await self.read_queue.put((self.topic, data))
+                
                 
     async def start(self):
-        if self.hostname:
-            await self.handle_client()
-        else:
-            await self.handle_server()
+        try:
+            if self.hostname:
+                print("Start client")
+                await self.handle_client()
+            else:
+                print("Start server")
+                await self.handle_server()
+        except ConnectionRefusedError:
+            log.error(f"Connection was refused for {self}.")
+        except Exception as e:
+            log.error(e)
 
 class TCP_Manager(Plugin):
     """
@@ -135,40 +151,56 @@ class TCP_Manager(Plugin):
         Forks a process to handle receiving subscriptions.
         Creates auxillary socket maps and lists.
         """
-        self.hot = False # Prevent hot reload when config changes until we fixup reconfigure
         super().__init__()
-        self.tasks = []
-        self.output_queue = asyncio.Queue()
+        self.read_queue = asyncio.Queue()
+        self.topic_subscription_map = defaultdict(list)
         self.loop.create_task(self.service_reads())
+        self.configuration = defaultdict(dict)
+        self.hot = False
         self.start()
 
     async def service_reads(self):
         while self.running:
-            topic, msg = await self.output_queue.get()
+            topic, msg = await self.read_queue.get()
             await self.stream(topic, msg)
 
     async def reconfigure(self, topic, message, reply):
-        if self.hot:
-            log.info("Already configured!")
-            return
         await super().reconfigure(topic, message, reply)
-        #print(f"{self.subscriptions.items()=}!")
-        self.topic_subscription_map = defaultdict(list)
 
-        self.tasks = []
-        print(self.subscriptions, '!!!!')
-        for (server_name, metadata) in self.subscriptions.items():
-            print(f"GETTOU! {metadata=}")
-            sub = Subscription(server_name=server_name,
-                               hostname=metadata['hostname'],
-                               port=metadata['port'],
-                               mode=metadata['mode'],
-                               timeout_seconds=metadata['timeout_seconds'],
-                               output_queue=self.output_queue)
-            print(f'{metadata=}')
-            self.topic_subscription_map[metadata['topic']].append(sub)
-            print(f'{Fore.YELLOW} LETS GO {self.topic_subscription_map}! {Fore.RESET}')
-            asyncio.create_task(sub.start())
+        def setup_subscriptions(subscription_map):
+            for (server_name, metadata) in subscription_map.items():
+                topic = metadata['topic']
+                try:
+                    sub = Subscription(server_name=server_name,
+                                       topic=topic,
+                                       hostname=metadata['hostname'],
+                                       port=metadata['port'],
+                                       mode=metadata['mode'],
+                                       timeout_seconds=metadata['timeout_seconds'],
+                                       read_queue=self.read_queue,
+                                       write_queue=asyncio.Queue())
+                    self.topic_subscription_map[topic].append(sub)
+                except Exception as e:
+                    log.error(f"Error initializing subscriptions: {e}")
+                    traceback.print_exc()
+
+        # def close_changed_connections(reconfiguration_map):
+        #     for (server_name, metadata) in reconfiguration_map.items():
+        #         print(Fore.CYAN, f"{self.topic_subscription_map=}", Fore.RESET)
+        #         subs = self.topic_subscription_map.get(metadata['topic'])
+        #         print(subs)
+        #         for sub in subs:
+        #             print("ZOING")
+        #         #     log.info(f"Shutting down {sub}")
+        #         #     sub.shutdown()            
+
+        if self.hot:
+            return
+        subscription_map = {server: metadata for (server, metadata) in self.subscriptions.items()
+                            if not metadata == self.configuration.get(server, {})}
+        #close_changed_connections(subscription_map)
+        setup_subscriptions(subscription_map)
+        self.configuration = subscription_map
         self.hot = True
             
     async def process(self, topic, message, reply):
@@ -180,48 +212,48 @@ class TCP_Manager(Plugin):
         if not message:
             log.info('Received no data')
             return
-        print(f"{self.topic_subscription_map=}")
-        subs = [sub for sub in self.topic_subscription_map[topic] if sub.mode is Mode.TRANSMIT]
-        print(f'{subs=}')
-        for sub in subs:
-            if isinstance(message, CmdMetaData):
-                sub.input_queue.put(message.payload_bytes)
-            else:
-                sub.input_queue.put(message)
+                
+        if isinstance(message, CmdMetaData):
+            message = message.payload_bytes
+
+        write_queues = (i.write_queue for i in self.topic_subscription_map.get(topic, []))
+        for write_queue in write_queues:
+            await write_queue.put(message)
+    
         if isinstance(message, CmdMetaData):
             await self.publish('Uplink.CmdMetaData.Complete', message)
     
-    def supervisor_tree(self, msg=None):
+    # def supervisor_tree(self, msg=None):
         
-        def periodic_report(report_time=5):
-            while True:
-                time.sleep(report_time)
-                msg = []
-                for sub_list in self.topic_subscription_map.values():
-                    msg += [i.status_map() for i in sub_list]
-                log.debug(msg)
-                self.stream(msg,  MessageType.TCP_STATUS.name)
+    #     def periodic_report(report_time=5):
+    #         while True:
+    #             time.sleep(report_time)
+    #             msg = []
+    #             for sub_list in self.topic_subscription_map.values():
+    #                 msg += [i.status_map() for i in sub_list]
+    #             log.debug(msg)
+    #             self.stream(msg,  MessageType.TCP_STATUS.name)
 
-        def high_priority(msg):
-            # self.publish(msg, "monitor_high_priority_cltu")
-            pass
+    #     def high_priority(msg):
+    #         # self.publish(msg, "monitor_high_priority_cltu")
+    #         pass
         
-        def monitor(restart_delay_s=5):
-            # self.connect()
-            # while True:
-            #     time.sleep(restart_delay_s)
-            #     if self.CLTU_Manager._state == 'active':
-            #         log.debug(f"SLE OK!")
-            #     else:
-            #         self.publish("CLTU SLE Interface is not active!", "monitor_high_priority_cltu")
-            #         self.handle_restart()
-            pass
+    #     def monitor(restart_delay_s=5):
+    #         # self.connect()
+    #         # while True:
+    #         #     time.sleep(restart_delay_s)
+    #         #     if self.CLTU_Manager._state == 'active':
+    #         #         log.debug(f"SLE OK!")
+    #         #     else:
+    #         #         self.publish("CLTU SLE Interface is not active!", "monitor_high_priority_cltu")
+    #         #         self.handle_restart()
+    #         pass
 
-        if msg:
-            high_priority(msg)
-            return
+    #     if msg:
+    #         high_priority(msg)
+    #         return
            
-        #if self.report_time_s:
-            #reporter = Greenlet.spawn(periodic_report, self.report_time_s)
-        #mon = Greenlet.spawn(monitor, self.restart_delay_s)
+    #     #if self.report_time_s:
+    #         #reporter = Greenlet.spawn(periodic_report, self.report_time_s)
+    #     #mon = Greenlet.spawn(monitor, self.restart_delay_s)
      
