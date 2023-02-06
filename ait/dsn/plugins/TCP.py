@@ -149,17 +149,26 @@ class TCP_Manager(Plugin):
 
     async def reconfigure(self, topic, message, reply):
         if self.hot:
+            log.info("Already configured!")
             return
         await super().reconfigure(topic, message, reply)
+        #print(f"{self.subscriptions.items()=}!")
         self.topic_subscription_map = defaultdict(list)
 
         self.tasks = []
+        print(self.subscriptions, '!!!!')
         for (server_name, metadata) in self.subscriptions.items():
-            sub = Subscription(server_name=server_name, **metadata,
+            print(f"GETTOU! {metadata=}")
+            sub = Subscription(server_name=server_name,
+                               hostname=metadata['hostname'],
+                               port=metadata['port'],
+                               mode=metadata['mode'],
+                               timeout_seconds=metadata['timeout_seconds'],
                                output_queue=self.output_queue)
+            print(f'{metadata=}')
             self.topic_subscription_map[metadata['topic']].append(sub)
+            print(f'{Fore.YELLOW} LETS GO {self.topic_subscription_map}! {Fore.RESET}')
             asyncio.create_task(sub.start())
-        #print(f'{Fore.YELLOW} LETS GO! {self.tasks=} {Fore.RESET}')
         self.hot = True
             
     async def process(self, topic, message, reply):
@@ -171,13 +180,14 @@ class TCP_Manager(Plugin):
         if not message:
             log.info('Received no data')
             return
-        subs = self.topic_subscription_map[topic]
-        subs = [sub for sub in subs if sub.mode is Mode.TRANSMIT]
+        print(f"{self.topic_subscription_map=}")
+        subs = [sub for sub in self.topic_subscription_map[topic] if sub.mode is Mode.TRANSMIT]
+        print(f'{subs=}')
         for sub in subs:
             if isinstance(message, CmdMetaData):
-                sub.data_queue.put(message.payload_bytes)
+                sub.input_queue.put(message.payload_bytes)
             else:
-                sub.data_queue.put(message)
+                sub.input_queue.put(message)
         if isinstance(message, CmdMetaData):
             await self.publish('Uplink.CmdMetaData.Complete', message)
     
