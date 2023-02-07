@@ -4,7 +4,6 @@ from ait.core.server import Plugin
 from ait.core import log
 import ait.dsn.plugins.TCTF_Manager as tctf
 from ait.core.sdls_utils import SDLS_Type, get_sdls_type
-from ait.core.message_types import MessageType
 import asyncio
 import traceback
 
