@@ -212,12 +212,14 @@ class TCP_Manager(Plugin):
             return
                 
         if isinstance(message, CmdMetaData):
-            message = message.payload_bytes
-
+            pl = message.payload_bytes
+        else:
+            pl = message
+            
         write_queues = (i.write_queue for i in self.topic_subscription_map.get(topic, []))
         for write_queue in write_queues:
-            await write_queue.put(message)
-    
+            await write_queue.put(pl)
+
         if isinstance(message, CmdMetaData):
             await self.publish('Uplink.CmdMetaData.Complete', message)
     
