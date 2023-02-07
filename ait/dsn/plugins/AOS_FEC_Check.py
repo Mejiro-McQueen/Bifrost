@@ -9,8 +9,6 @@ from ait.core.message_types import MessageType as MT
 from colorama import Fore
 import asyncio
 
-STRICT = False
-
 
 @dataclass
 class TaggedFrame:
@@ -55,9 +53,9 @@ class AOS_Tagger():
              'vcid_corruptions': self.vcid_corrupt_count}
         return m
 
-    def tag_frame(self, raw_frame):
+    async def tag_frame(self, raw_frame):
 
-        def tag_corrupt():
+        async def tag_corrupt():
             try:
                 data_field_end_index = frame.defaultConfig.data_field_endIndex
             except Exception as e:
@@ -74,14 +72,13 @@ class AOS_Tagger():
             if tagged_frame.corrupt_frame:
                 log.error(f"Expected ECF {expected_ecf} did not match actual ecf.")
                 if tagged_frame.vcid not in self.vcid_corrupt_count:
-                    self.vcid_corrupt_count['Unknown'] += 1
-                else:
-                    self.vcid_corrupt_count[tagged_frame.vcid] += 1
-                self.publish("Bifrost.Errors.Frames.ECF_Mismatch", self.vcid_corrupt_count)
+                    tagged_frame.vcid = "Unknown"
+                self.vcid_corrupt_count[tagged_frame.vcid] += 1
+                #await self.publish("Bifrost.Errors.Frames.ECF_Mismatch", self.vcid_corrupt_count)
             return
 
-        def tag_out_of_sequence():
-            if tagged_frame.vcid not in self.vcid_sequence_counter:
+        async def tag_out_of_sequence():
+            if tagged_frame.vcid not in self.vcid_sequence_counter or tagged_frame.vcid == 'Unknown':
                 # Junk Frame
                 tagged_frame.out_of_sequence = True
                 tagged_frame.absolute_counter += 1
@@ -95,7 +92,7 @@ class AOS_Tagger():
                 tagged_frame.out_of_sequence = True
                 log.warn(f"Out of Sequence Frame VCID {tagged_frame.vcid}: expected {expected_vcid_count} but got {tagged_frame.channel_counter}")
                 self.vcid_loss_count[tagged_frame.vcid] += 1
-                self.publish("Bifrost.Errors.Frames.Out_Of_Sequence", self.vcid_loss_count)
+                #await self.publish("Bifrost.Errors.Frames.Out_Of_Sequence", self.vcid_loss_count)
 
             self.hot[tagged_frame.vcid] = True
             self.vcid_sequence_counter[tagged_frame.vcid] = tagged_frame.channel_counter
@@ -112,8 +109,8 @@ class AOS_Tagger():
                                    idle=idle,
                                    channel_counter=channel_counter)
 
-        tag_corrupt()
-        tag_out_of_sequence()
+        await tag_corrupt()
+        await tag_out_of_sequence()
 
         return tagged_frame
 
@@ -139,7 +136,7 @@ class AOS_FEC_Check_Plugin(Plugin):
             log.error("received no data!")
             return
 
-        tagged_frame = self.tagger.tag_frame(message)
+        tagged_frame = await self.tagger.tag_frame(message)
         await self.stream(f'Telemetry.AOS.VCID.{tagged_frame.vcid}.TaggedFrame', tagged_frame)
 
     async def supervisor_tree(self):
