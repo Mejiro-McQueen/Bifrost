@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import ait
 from ait.core.message_types import MessageType as MT
 from colorama import Fore
+import asyncio
 
 STRICT = False
 
@@ -36,7 +37,7 @@ class AOS_Tagger():
     crc_func = crc_hqx
     frame_counter_modulo = 16777216  # As defined in CCSDS ICD: https://public.ccsds.org/Pubs/732x0b4.pdf
 
-    def __init__(self, publisher=None):
+    def __init__(self, publisher):
         self.publish = publisher
         self.absolute_counter = 0
         vcids = ait.config.get('dsn.sle.aos.virtual_channels')._config  # what a low IQ move...
@@ -46,6 +47,13 @@ class AOS_Tagger():
         self.vcid_corrupt_count = {**self.vcid_sequence_counter}
         self.hot = {i: False for i in self.vcid_sequence_counter.keys()}
         return
+
+    def subset_map(self):
+        m = {'absolute_counter': self.absolute_counter,
+             'vcid_counter': self.vcid_sequence_counter,
+             'vcid_losses': self.vcid_loss_count,
+             'vcid_corruptions': self.vcid_corrupt_count}
+        return m
 
     def tag_frame(self, raw_frame):
 
@@ -69,7 +77,7 @@ class AOS_Tagger():
                     self.vcid_corrupt_count['Unknown'] += 1
                 else:
                     self.vcid_corrupt_count[tagged_frame.vcid] += 1
-                self.publish(MT.CHECK_FRAME_ECF_MISMATCH.name, self.vcid_corrupt_count)
+                self.publish("Bifrost.Errors.Frames.ECF_Mismatch", self.vcid_corrupt_count)
             return
 
         def tag_out_of_sequence():
@@ -87,7 +95,7 @@ class AOS_Tagger():
                 tagged_frame.out_of_sequence = True
                 log.warn(f"Out of Sequence Frame VCID {tagged_frame.vcid}: expected {expected_vcid_count} but got {tagged_frame.channel_counter}")
                 self.vcid_loss_count[tagged_frame.vcid] += 1
-                self.publish(MT.CHECK_FRAME_OUT_OF_SEQUENCE.name, self.vcid_loss_count)
+                self.publish("Bifrost.Errors.Frames.Out_Of_Sequence", self.vcid_loss_count)
 
             self.hot[tagged_frame.vcid] = True
             self.vcid_sequence_counter[tagged_frame.vcid] = tagged_frame.channel_counter
@@ -119,6 +127,8 @@ class AOS_FEC_Check_Plugin(Plugin):
     def __init__(self):
         self.tagger = AOS_Tagger(self.publish)
         super().__init__()
+        self.report_time = 5
+        self.loop.create_task(self.supervisor_tree())
         self.start()
         
     async def reconfigure(self, topic, message, reply):
@@ -131,3 +141,11 @@ class AOS_FEC_Check_Plugin(Plugin):
 
         tagged_frame = self.tagger.tag_frame(message)
         await self.stream(f'Telemetry.AOS.VCID.{tagged_frame.vcid}.TaggedFrame', tagged_frame)
+
+    async def supervisor_tree(self):
+        async def monitor():
+            while True:
+                await self.publish('Bifrost.Monitors.Frames.Checks', self.tagger.subset_map())
+                await asyncio.sleep(self.report_time)
+
+        self.loop.create_task(monitor())

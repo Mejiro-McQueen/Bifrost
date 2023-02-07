@@ -17,8 +17,6 @@ class Mode(enum.Enum):
     TRANSMIT = enum.auto()
     RECEIVE = enum.auto()
 
-
-
 @dataclass
 class Subscription:
     """
@@ -101,10 +99,8 @@ class Subscription:
     async def start(self):
         try:
             if self.hostname:
-                print("Start client")
                 await self.handle_client()
             else:
-                print("Start server")
                 await self.handle_server()
         except ConnectionRefusedError:
             log.error(f"Connection was refused for {self}.")
@@ -157,6 +153,8 @@ class TCP_Manager(Plugin):
         self.loop.create_task(self.service_reads())
         self.configuration = defaultdict(dict)
         self.hot = False
+        self.report_time = 5
+        self.loop.create_task(self.supervisor_tree())
         self.start()
 
     async def service_reads(self):
@@ -223,37 +221,15 @@ class TCP_Manager(Plugin):
         if isinstance(message, CmdMetaData):
             await self.publish('Uplink.CmdMetaData.Complete', message)
     
-    # def supervisor_tree(self, msg=None):
-        
-    #     def periodic_report(report_time=5):
-    #         while True:
-    #             time.sleep(report_time)
-    #             msg = []
-    #             for sub_list in self.topic_subscription_map.values():
-    #                 msg += [i.status_map() for i in sub_list]
-    #             log.debug(msg)
-    #             self.stream(msg,  MessageType.TCP_STATUS.name)
+    async def supervisor_tree(self, msg=None):
+        async def monitor():
+            while True:
+                await asyncio.sleep(self.report_time)
+                msg = []
+                for sub_list in self.topic_subscription_map.values():
+                    msg += [i.status_map() for i in sub_list]
+                if msg:
+                    await self.publish('Bifrost.Monitors.TCP_STATUS', msg)
 
-    #     def high_priority(msg):
-    #         # self.publish(msg, "monitor_high_priority_cltu")
-    #         pass
-        
-    #     def monitor(restart_delay_s=5):
-    #         # self.connect()
-    #         # while True:
-    #         #     time.sleep(restart_delay_s)
-    #         #     if self.CLTU_Manager._state == 'active':
-    #         #         log.debug(f"SLE OK!")
-    #         #     else:
-    #         #         self.publish("CLTU SLE Interface is not active!", "monitor_high_priority_cltu")
-    #         #         self.handle_restart()
-    #         pass
-
-    #     if msg:
-    #         high_priority(msg)
-    #         return
-           
-    #     #if self.report_time_s:
-    #         #reporter = Greenlet.spawn(periodic_report, self.report_time_s)
-    #     #mon = Greenlet.spawn(monitor, self.restart_delay_s)
-     
+        self.loop.create_task(monitor())
+    

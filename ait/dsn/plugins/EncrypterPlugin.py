@@ -5,7 +5,7 @@ from ait.core import log
 import ait.dsn.plugins.TCTF_Manager as tctf
 from ait.core.sdls_utils import SDLS_Type, get_sdls_type
 from ait.core.message_types import MessageType
-
+import asyncio
 
 class Encrypter(Plugin):
     """
@@ -21,15 +21,21 @@ class Encrypter(Plugin):
     """
     def __init__(self):
         super().__init__()
-        self.restart_delay_s = 5
-        self.report_time_s = 10
         self.security_risk = False
-        
+        self.report_time = 5
+        self.loop.create_task(self.supervisor_tree())
+        self.encrypter = EncrypterFactory().get()
+        self.start()
+
+    def __del__(self):
+        self.encrypter.close()
+        return
+
+    def check_security_risk(self):
         # We never expected this plugin to be instantiated
         # if our intention was to run in SDLS_Type CLEAR mode.
         # We risk leaking keys and introduce unefined behavior.
-        self.expecting_sdls = get_sdls_type()
-        if self.expecting_sdls is SDLS_Type.CLEAR or self.expecting_sdls is SDLS_Type.FINAL:
+        if any (t is get_sdls_type() for t in [SDLS_Type.CLEAR, SDLS_Type.FINAL]):
             print(f"CRITICAL CONFIGURATION ERROR: "
                   "found parameter expected_sdls_type: {self.expecting_sdls}. "
                   "This plugin expects <AUTH|ENC>. "
@@ -37,18 +43,16 @@ class Encrypter(Plugin):
                   "the encrypter plugin block. "
                   "We will refuse to process TCTFs.")
             self.security_risk = True
-        else:
-            self.encrypter = EncrypterFactory().get()
-            self.encrypter.configure()
-            self.encrypter.connect()
-            log.info(f"Encryption services started.")
-            #self.loop.create_task(self.supervisor_tree())
-        self.start()
+        self.security_risk = False
+        return self.security_risk
 
-    def __del__(self):
-        self.encrypter.close()
-        return
-    
+    def connect(self):
+        if self.check_security_risk():
+            return
+        self.encrypter.configure()
+        self.encrypter.connect()
+        log.info(f"Encryption services started.")
+
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
         return
@@ -108,36 +112,20 @@ class Encrypter(Plugin):
             cmd_struct.payload_bytes = crypt_result.result
             await self.publish("Uplink.CmdMetaData.SDLS", cmd_struct)
 
-    async def supervisor_tree(self, msg=None):
-
-        async def periodic_report(report_time=5):
+    async def supervisor_tree(self):
+        async def monitor():
             while True:
-                asyncio.sleep(report_time)
                 msg = {'state': self.encrypter.is_connected()}
-                self.publish(msg, MessageType.KMC_STATUS.name)
-                log.debug(msg)
+                await self.publish('Bifrost.Monitors.KMC_Status', msg)
+                await asyncio.sleep(self.report_time)
 
-        def high_priority(msg):
-            #self.publish(msg, "monitor_high_priority_raf")
-            pass
+        async def auto_start():
+            while True:
+                if not self.encrypter.is_connected():
+                    self.connect()
+                await asyncio.sleep(self.report_time)
+
+        self.loop.create_task(auto_start())
+        self.loop.create_task(monitor())
+            
         
-        def monitor(restart_delay_s=5):
-            #self.connect()
-            #time.sleep(restart_delay_s)
-            #while True:
-            #    time.sleep(restart_delay_s)
-            #    self.SLE_manager.schedule_status_report()
-            #    if self.SLE_manager._state == 'active' or self.SLE_manager._state == 'ready':
-            #        log.debug(f"SLE OK!")
-            #    else:
-            #        self.publish(f"RAF SLE Interface is not active! ",'monitor_high_priority_cltu')
-            #        self.handle_restart()
-            pass
-    
-        if msg:
-            high_priority(msg)
-            return
-        
-        if self.report_time_s:
-            reporter = self.loop.create_task(periodic_report(self.report_time_s))
-        mon = self.loop.create_task(monitor(self.restart_delay_s))
