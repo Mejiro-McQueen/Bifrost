@@ -73,7 +73,7 @@ class AOS_Tagger():
                 if tagged_frame.vcid not in self.vcid_corrupt_count:
                     tagged_frame.vcid = "Unknown"
                 self.vcid_corrupt_count[tagged_frame.vcid] += 1
-                #await self.publish("Bifrost.Errors.Frames.ECF_Mismatch", self.vcid_corrupt_count)
+                await self.publish("Bifrost.Errors.Frames.ECF_Mismatch", self.vcid_corrupt_count)
             return
 
         async def tag_out_of_sequence():
@@ -84,14 +84,14 @@ class AOS_Tagger():
                 return 
             expected_vcid_count = (self.vcid_sequence_counter[tagged_frame.vcid] % self.frame_counter_modulo) + 1
 
-            #rint(f"{tagged_frame.vcid=} {expected_vcid_count=} {tagged_frame.channel_counter=} {self.hot[tagged_frame.vcid]=}")
+            #print(f"{tagged_frame.vcid=} {expected_vcid_count=} {tagged_frame.channel_counter=} {self.hot[tagged_frame.vcid]=}")
             #print(self.hot[tagged_frame.vcid] and not tagged_frame.idle and not tagged_frame.channel_counter == expected_vcid_count)
 
             if self.hot[tagged_frame.vcid] and not tagged_frame.idle and not tagged_frame.channel_counter == expected_vcid_count:
                 tagged_frame.out_of_sequence = True
                 log.warn(f"Out of Sequence Frame VCID {tagged_frame.vcid}: expected {expected_vcid_count} but got {tagged_frame.channel_counter}")
                 self.vcid_loss_count[tagged_frame.vcid] += 1
-                #await self.publish("Bifrost.Errors.Frames.Out_Of_Sequence", self.vcid_loss_count)
+                await self.publish("Bifrost.Errors.Frames.Out_Of_Sequence", self.vcid_loss_count)
 
             self.hot[tagged_frame.vcid] = True
             self.vcid_sequence_counter[tagged_frame.vcid] = tagged_frame.channel_counter
