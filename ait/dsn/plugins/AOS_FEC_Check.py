@@ -66,11 +66,10 @@ class AOS_Tagger():
             expected_ecf = raw_frame[-2:]
             block = raw_frame[:data_field_end_index]
             actual_ecf = self.crc_func(block, 0xFFFF).to_bytes(2, 'big')
-            corrupt = actual_ecf != expected_ecf
-            tagged_frame.corrupt_frame = corrupt
+            tagged_frame.corrupt_frame = actual_ecf != expected_ecf
 
             if tagged_frame.corrupt_frame:
-                log.error(f"Expected ECF {expected_ecf} did not match actual ecf.")
+                log.error(f"Expected ECF {expected_ecf} did not match actual ecf {actual_ecf}.")
                 if tagged_frame.vcid not in self.vcid_corrupt_count:
                     tagged_frame.vcid = "Unknown"
                 self.vcid_corrupt_count[tagged_frame.vcid] += 1
