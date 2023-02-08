@@ -38,10 +38,8 @@ setup(
     namespace_packages = ['ait'],
 
     install_requires = [
-        'greenlet==0.4.16',
         'pyasn1',
         'bitstring',
-        'graphviz',
     ],
 
     extras_require = {
