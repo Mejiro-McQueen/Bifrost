@@ -1,149 +1,101 @@
-The AMMOS Instrument Toolkit (Formerly the Bespoke Links to Instruments
-for Surface and Space (BLISS)) is a Python-based software suite
-developed to handle Ground Data System (GDS), Electronic Ground Support
-Equipment (EGSE), commanding, telemetry uplink/downlink, and sequencing
-for instrument and CubeSat Missions. It is a generalization and expansion
-of tools developed for a number of ISS
-missions.
+Bifrost, a FOSS Ground Data System software development environment.
 
+What is Bifrost?
+================
+- Bifrost is a light weight software development environment for developing ground data systems.
+- Bifrost is a curated a collection of programs, libraries, and utilities GDS engineers can use and/or modify to suit their missions' needs.
+- Bifrost facilitates a service based architecture with the NATS Server at its core [https://nats.io/] to provide maximum flexibility in integrating Bifrost with your mission's software systems.
+- Bifrost strives to provide straight forward and sane services for multimission use by adhering to the CCSDS standards as much as possible.
+- Bifrost strives to promote hacking in order to quickly fulfill the mission's needs (in the MIT sense) by providing the ability to write your own services that interact with the NATS network to intercept and modify data streams and messages, or provide new capabilities all together. 
+
+What is Bifrost _not_?
+======================
+- Bifrost is not an official product, supported, or endorsed by the SunRISE project, Ammos Instrumentation Toolkit (AIT), Advanced Multi-Mission Operations System (AMMOS), Jet Propulsion Laboraty (JPL), Caltech, The National Aeronautics and Space Administration (NASA), or any of their affiliates and contributors; You are completely dependant on yourself and the independant FOSS contributors to this repository for support. 
+- Bifrost is not an out of the box solution. Our intention is to provide Cubesat missions a way of reusing software developed by other cubesat missions and NASA projects. To this end, many of the Bifrost libraries are not fully CCSDS compliant, bug free, or feature complete. You should expect to invest a considerate amount of time and resources into developing Bifrost services that meet your missions' needs.
+- Bifrost is not high performance. Due to historical reasons, many (all) of Bifrost services and libraries are written in python 3. Levarging NATS and starting each process as a service, Bifrost builds a system of processes. Each python process uses python's built in asyncio library to provide concurency within the process.
+- Bifrost is not a data visualization or analysis suite (See the Operations section for tips).
+
+What is AIT?
+============
+AIT is the AMMOS Instrument Toolkit [https://github.com/NASA-AMMOS/AIT-Core] which is an MIT licensed software developed and maintained by Jet Propulsion Laboratory. Some of the components of Bifrost were provided by AMMOS, the AIT project and its open source contributors.
+
+- Bifrost leverages the SLE, SLS, and AOS frames libraries from AIT-DSN.
+- Bifrost leverages the command and telemetry dictionary capabilities from AIT-Core.
+- Even though the Bifrost service to use them exists, the AIT SLS libraries are dependant on the KMC Client and KMC server developed by AMMOS (They are not included in Bifrost, you're on your own on this one).
+  
+What are differences the between Bifrost and AIT's versions of (insert object here)?
+------------------------------------------------------------------------------------
+- Bifrost has removed as many unnecessary, incongruent, or badly supported components from AIT as possible.
+- Bifrost has removed as many AIT components that are uncessary for the success to cubesat missions.
+- Bifrost has patched or improved any remaining components.
+
+AIT has (insert capability here), will Bifrost merge it in and support it?
+--------------------------------------------------------------------------
+AIT is MIT licensed. Bifrost is MIT licensed. Make your dreams come true.
+Bifrost has no intention of keeping up with AIT development.
+However, if you make bug fix or a cool multimission, and want to share it as part of Bifrost, we would appreciate the PR!
+
+Will Bifrost make pull requests to provide (insert capability here) to AIT? 
+---------------------------------------------------------------------------
+AIT is MIT licensed. Bifrost is MIT licensed. Make your dreams come true.
+Bifrost has no intention of keeping up with AIT development.
+
+Is the AIT Plugin (insert plugin here) compatible with Bifrost as a service?
+----------------------------------------------------------------------------
+Unlikely! However, it shouldn't be too difficult to adapt it.
+
+What is the Bifrost's history?
+=============================
+Bifrost was orignally SunRISE-AIT, a fork of the AIT repositories for the SunRISE cuebsat mission. SunRISE intended to use AIT as a ground data system, but at the time, AIT was missing many functionalities critical to the success of a ground data system. With the power of extreme programming, and over the course of a year, the SunRISE GDS engineers developed SunRISE-AIT into a functional GDS. SunRISE contributed to the AIT project early on, however it soon became clear that the SunRISE-AIT fork had become orthogonal to AIT upstream in design and philosophy. Thus we arrive at Bifrost, the effort to polish, refine, and share with the FOSS community a multimission version of SunRISE-AIT.
+
+How can I help?
+===============
+Write a cool multimission service, bug fix, or library that provides a capability and make a PR!
+A good long term goal is for Bifrost to be provide all the necessary capabilities to support a mission using the Nasa Core Flight Software.
+
+Caveats
+=======
+- The command and telemetry dictionaries, and their associated data types are goofy. Keep this in mind when designing your ICD and do a lot of experimenation; Also consider rewriting these modules and let us know about it!
+- The SLE libraries aren't polished or even feature complete (SunRISE had limited resources available to refine these modules).
+- Many CCSDS oriented libraries are goofy and unpolished.
+- Our software tests are terrible if non existant due to our development methodology and resource constrains. We attempt to test against SunRISE Flight Software Simulators and satellites as often as possible.
+ 
 Getting Started
 ===============
+- How do I install Bifrost?
+  You'll need PIP, a NATS server (quick docker instructions below), and a configuration file. We'll use conda to sort out our virtual environments.
+  0. Setup your project distribution for AIT.
+  1. Make a new directory and clone: your project repository, Bifrost
+  1. ``conda create -y -q --name $(PROJECT_NAME) python=$(PYTHON_VERSION)``
+  2. ``conda env config vars set AIT_CONFIG=./$(project_dir)/config/config.yaml BIFROST_SERVICES_CONFIG='$(project_dir)/config/services.yaml' SDLS=ENC``
+  3. ``pip install -e ./Bifrost``
+  4. ``pip install -e ./$(your project)``
+  4. ``docker container rm nats --force && docker run --name nats  -p 4222:4222 -p 8222:8222 nats -js --http_port 8222 --debug``
+  
 
-You can read through the `Installation and Configuration
-Page <http://ait-core.readthedocs.io/en/latest/installation.html>`__ for
-instruction on how to install AIT Core.
+- How do I run Bifrost?
+ ``bifrost``
 
-You can read through the `New Project Setup
-Page <http://ait-core.readthedocs.io/en/latest/project_setup.html>`__
-for instructions on how to use AIT on your next project.
+- How can I see some data flow?
+  ``bifrost.messages`` for viewing the message stream.
+  ``bifrost.realtime`` for viewing telemetry output.
+  ``bifrost.command_loader`` for sending commands (edit this file).
+  
+How can I visualize or analyze my telemetry?
+===========================================
+- Bifrost primarily outputs telemetry to an Influx database. You can use the Influx visualization and notebooking capabilities, or any other software that supports influx (Grafana, etc...).
+- SunRISE has had success in ingesting telemetry from 3 space craft simultaneously on OpenMCT.
+- Bifrost also outputs telemetry to the NATS network and a websocket via its web service; you can use these to feed your favorite data analysis software or write a Bifrost service.
 
-Join the Community
-==================
-
-The project's `User and Developer Mailing List <https://groups.google.com/forum/#!forum/ait-dev>`__ is the best way to communicate with the team, ask questions, brainstorm plans for future changes, and help contribute to the project.
-
-This project exists thanks to the dedicated users, contributors, committers, and project management committee members. If you'd like to learn more about how the project is organized and how to become a part of the team please check out the `Project Structure and Governance <https://github.com/NASA-AMMOS/AIT-Core/wiki/Project-Structure-and-Governance>`__ documentation.
-
-Contributing
-============
-
-Thank you for your interest in contributing to AIT! We welcome contributions from people of all backgrounds and disciplines. While much of the focus of our project is software, we believe that many of the most critical contributions come in the form of documentation improvements, asset generation, user testing and feedback, and community involvement. So if you're interested and want to help out please don't hesitate! Send us an email on the public mailing list below, introduce yourself, and join the community.
-
-Communication
--------------
-All project communication happens via mailing lists. Discussions related to development should happen on the public `Developer and User Mailing List <https://groups.google.com/forum/#!forum/ait-dev>`__. If you're new to the community make sure to introduce yourself as well!
-
-Dev Installation
-----------------
-As always, we encourage you to install AIT into a virtual environment of your choosing when you set up your development environment. AIT uses `poetry` for package management. Before setting up your development environment you will need the following installed and ready to use:
-
-- A virtual environment "manager" of your choosing with a configured and activated virtual environment. Since AIT uses `poetry` you can consider leveraging its `environment management <https://python-poetry.org/docs/managing-environments/>`__ functionality as well.
-- `pyenv <https://github.com/pyenv/pyenv>`__ so you can easily install different Python versions
-- `poetry <https://python-poetry.org/docs/#installation>`__ installed either to your specific virtual environment or system-wide, whichever you prefer.
-
-Install the package in "editable" mode with all the development dependencies by running the following::
-
-    poetry install
-
-As with a normal installation you will need to point `AIT_CONFIG` at the primary configuration file. You should consider saving this in your shell RC file or your virtual environment configuration files so you don't have to reset with every new shell::
-
-    export AIT_CONFIG=/path/to/ait-core/config/config.yaml
-
-Finally, you should configure `pre-commit` by running the following. This will install our pre-commit and pre-push hooks::
-
-    pre-commit install && pre-commit install -t pre-push
-
-Dev Tools
----------
-Tests
-~~~~~
-
-Use `pytest` to run the test suite::
-
-    pytest
-
-Use `tox` to run a thorough build of the toolkit that checks test execution across different Python versions (in the future), verifies the docs build, runs the linting pipeline, and checks that the repo packages cleanly::
-
-    tox
-
-You can see the available `tox` test environments by passing `-l` and execute a specific one by passing its name to `-e`. Run `tox -h` for more info.
-
-Code Checks
-~~~~~~~~~~~
-We run ``black``, ``flake8``, ``mypy``, and a few other minor checkers on the code base. Our linting and code check pipeline is run whenever you commit or push. If you'd like to run it manually you can do so with the following::
-
-    pre_commit run --color=always {posargs:--all}
-
-Individual calls to the tools are configured in ``.pre-commit-config.yaml``. If you'd like to run a specific tool on its own you can see how we call them there.
+  
+Tips
+====
+- Do not use python if at all possible, choose a language that has good NATS Jetstream support (Golang for example), or any langauge with good NATS support if you do not need to operate on streams (Haskell, Common Lisp), that is, write new services without using Bifrost python libraries. Your new software can interact with Bifrost services over the NATS network.
+- If you must use python, do not use Gevent, Greenlets, gipc, etc... Bifrost historically used gevent, however performance was terrible and in many cases dropped telemetry all together; use python's built in asyncio library as much as possible, we have provided helper functions to facilitate this in your services.
+- Use the decorators in /bifrost/common/loud_exception.py to help prevent silent errors in your functions.
+- You can distribute your GDS across different machines or deploy on AWS!
 
 
-Documentation
-~~~~~~~~~~~~~
-
-AIT uses Sphinx to build its documentation. You can build the documentation with::
-
-    poetry run build_sphinx
-
-To view the documentation, open ``doc/build/html/index.html`` in a web browser.
-
-If you need to update the auto-generated documentation you can run the following command to rebuild all of the package documentation::
-
-    sphinx-apidoc --separate --force --no-toc -o doc/source ait ait/core/server/test ait/core/test
-
-Please make sure to update the docs if changes in a ticket result in the documentation being out of date.
-
-
-Project Workflow
-----------------
-Issue Tracking
-~~~~~~~~~~~~~~
-All changes need to be made against one or more tickets for tracking purposes. AIT uses GitHub Issues along with Zenhub to track issue in the project. All tickets should have (outside of rare edge-cases):
-
-- A concise title
-- An in-depth description of the problem / request. If reporting a bug, the description should include information on how to reproduce the bug. Also include the version of the code where you’re seeing the bug.
-
-If you’re going to begin work on a ticket make sure to progress the ticket through the various Pipeline steps as appropriate as well as assigning yourself as an Assignee. If you lack sufficient permissions to do so you can post on the ticket asking for the above to be done for you.
-
-Commit Messages
-~~~~~~~~~~~~~~~
-AIT projects take a fairly standard approach to commit message formatting. You can checkout Tim Pope's blog for a good starting point to figuring out how to format your commit messages. All commit messages should reference a ticket in their title / summary line::
-
-    Issue #248 - Show an example commit message title
-
-This makes sure that tickets are updated on GitHub with references to commits that are related to them.
-
-Commit should always be atomic. Keep solutions isolated whenever possible. Filler commits such as "clean up white space" or "fix typo" should be rebased out before making a pull request. Please ensure your commit history is clean and meaningful!
-
-Code Formatting and Style
-~~~~~~~~~~~~~~~~~~~~~~~~~
-AIT makes a best-effort attempt at sticking with PEP-8 conventions. This is enforced automatically by ``black`` and checked by ``flake8``. You should run the ``pre-commit`` linting pipeline on any changes you make.
-
-Testing
-~~~~~~~
-We do our best to make sure that all of our changes are tested. If you're fixing a bug you should always have an accompanying unit test to ensure we don't regress!
-
-Check the Developer Tips section below for information on running each repository's test suite.
-
-Pull Requests and Feature Branches
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-All changes should be isolated to a feature branch that links to a ticket. The standard across AIT projects is to use issue-### for branch names where ### is the issue number found on GitHub.
-
-The title of a pull request should include a reference to the ticket being fixed as mentioned for commit messages. The description of a pull request should provide an in-depth explanation of the changes present. Note, if you wrote good commit messages this step should be easy!
-
-Any tickets that are resolved by the pull request should be referenced with GitHub's syntax for closing out tickets. Assuming the above ticket we would have the following in a pull request description:
-
-Changes are required to be reviewed by at least one member of the AIT PMC/Committers groups, tests must pass, and the branch must be up to date with master before changes will be merged. If changes are made as part of code review please ensure your commit history is cleaned up.
-
-Resolve #248
---------------
-
-|travis|
-|docs|
-
-.. |travis| image:: https://travis-ci.com/NASA-AMMOS/AIT-Core.svg?branch=master
-    :target: https://travis-ci.com/NASA-AMMOS/AIT-Core
-
-.. |docs| image:: https://readthedocs.org/projects/ait-core/badge/?version=master
-    :alt: Documentation Status
-    :scale: 100%
-    :target: https://ait-core.readthedocs.io/en/latest/?badge=master
+Bifrost Architecture
+====================
+Comming soon!
