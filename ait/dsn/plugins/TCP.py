@@ -8,6 +8,7 @@ import asyncio
 from colorama import Fore
 import traceback
 
+import ipaddress
 
 class Mode(enum.Enum):
     TRANSMIT = enum.auto()
@@ -38,6 +39,18 @@ class Subscription:
         """
         self.ip = None
         self.log_header = f":-> {self.server_name} :=>"
+        if self.hostname:
+            try:
+                #Hostname is an ip
+                ipaddress.ip_address(self.hostname)
+                self.ip = self.hostname
+                self.hostname = socket.gethostbyaddr(self.hostname)
+            except:
+                # Hostname is a hostname
+                self.ip =  socket.gethostbyname(self.hostname)
+            self.socket = self.setup_client_socket()
+        else:
+            self.socket = self.setup_server_socket()
         self.mode = Mode[self.mode]
         self.sent_counter = 0
         self.receive_counter = 0
