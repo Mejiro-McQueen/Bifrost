@@ -5,7 +5,6 @@ from ait.dsn.sle.frames import AOSTransFrame
 from binascii import crc_hqx
 from dataclasses import dataclass
 import ait
-from ait.core.message_types import MessageType as MT
 from colorama import Fore
 import asyncio
 
