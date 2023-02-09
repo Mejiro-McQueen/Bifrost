@@ -23,14 +23,13 @@ import sys
 import socket
 import datetime
 import time
-
 import logging
 import logging.handlers
-
 import ait
 import ait.core
-from ait.core.sdls_utils import SDLS_Type, get_sdls_type
+
 import tqdm
+from bifrost.services.sdls_services.sdls_utils import SDLS_Type, get_sdls_type
 
 NOTICE = logging.INFO + 1
 COMMAND = logging.INFO + 2
