@@ -11,6 +11,7 @@ import errno
 import ait.dsn.plugins.Graffiti as Graffiti
 from ait.core.message_types import MessageType
 from sunrise.CmdMetaData import CmdMetaData
+import ipaddress
 
 class Mode(enum.Enum):
     TRANSMIT = enum.auto()
@@ -42,7 +43,14 @@ class Subscription:
         self.ip = None
         self.log_header = f":-> {self.server_name} :=>"
         if self.hostname:
-            self.ip = socket.gethostbyname(self.hostname)
+            try:
+                #Hostname is an ip
+                ipaddress.ip_address(self.hostname)
+                self.ip = self.hostname
+                self.hostname = socket.gethostbyaddr(self.hostname)
+            except:
+                # Hostname is a hostname
+                self.ip =  socket.gethostbyname(self.hostname)
             self.socket = self.setup_client_socket()
         else:
             self.socket = self.setup_server_socket()
