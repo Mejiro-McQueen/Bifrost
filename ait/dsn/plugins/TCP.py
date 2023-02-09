@@ -7,12 +7,14 @@ from sunrise.CmdMetaData import CmdMetaData
 import asyncio
 from colorama import Fore
 import traceback
-
+import socket
 import ipaddress
+
 
 class Mode(enum.Enum):
     TRANSMIT = enum.auto()
     RECEIVE = enum.auto()
+
 
 @dataclass
 class Subscription:
@@ -25,7 +27,7 @@ class Subscription:
     hostname: str
     port: int
     mode: Mode
-    read_queue: asyncio.Queue 
+    read_queue: asyncio.Queue
     write_queue: asyncio.Queue
     timeout_seconds: int = 5
     receive_size_bytes: int = 64000
@@ -45,10 +47,9 @@ class Subscription:
                 ipaddress.ip_address(self.hostname)
                 self.ip = self.hostname
                 self.hostname = socket.gethostbyaddr(self.hostname)
-            except:
+            except Exception as e:
                 # Hostname is a hostname
-                self.ip =  socket.gethostbyname(self.hostname)
-            self.socket = self.setup_client_socket()
+                self.ip = socket.gethostbyname(self.hostname)
         else:
             self.socket = self.setup_server_socket()
         self.mode = Mode[self.mode]
@@ -69,9 +70,9 @@ class Subscription:
 
     def status_map(self):
         m = {'topic': self.topic,
-             'host': self.hostname, 
+             'host': self.hostname,
              'port': self.port,
-             'mode': self.mode.name, 
+             'mode': self.mode.name,
              'Tx_Count': self.sent_counter,
              'Rx_Count': self.receive_counter}
         return m
@@ -85,12 +86,11 @@ class Subscription:
                 data = await self.write_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
-                
+
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
                 await self.read_queue.put((self.topic, data))
-                
-                
+
     async def handle_client(self):
         self.reader, self.writer = \
             await asyncio.open_connection(self.hostname, self.port)
@@ -99,12 +99,11 @@ class Subscription:
                 data = await self.write_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
-                
+
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
                 await self.read_queue.put((self.topic, data))
-                
-                
+
     async def start(self):
         try:
             if self.hostname:
@@ -115,6 +114,7 @@ class Subscription:
             log.error(f"Connection was refused for {self}.")
         except Exception as e:
             log.error(e)
+
 
 class TCP_Manager(Plugin):
     """
@@ -199,7 +199,7 @@ class TCP_Manager(Plugin):
         #         for sub in subs:
         #             print("ZOING")
         #         #     log.info(f"Shutting down {sub}")
-        #         #     sub.shutdown()            
+        #         #     sub.shutdown()
 
         if self.hot:
             return
@@ -209,7 +209,7 @@ class TCP_Manager(Plugin):
         setup_subscriptions(subscription_map)
         self.configuration = subscription_map
         self.hot = True
-            
+
     async def process(self, topic, message, reply):
         """
         Send data to the transmit Subscriptions associated with topic.
@@ -219,19 +219,19 @@ class TCP_Manager(Plugin):
         if not message:
             log.info('Received no data')
             return
-                
+
         if isinstance(message, CmdMetaData):
             pl = message.payload_bytes
         else:
             pl = message
-            
+
         write_queues = (i.write_queue for i in self.topic_subscription_map.get(topic, []))
         for write_queue in write_queues:
             await write_queue.put(pl)
 
         if isinstance(message, CmdMetaData):
             await self.publish('Uplink.CmdMetaData.Complete', message)
-    
+
     async def supervisor_tree(self, msg=None):
         async def monitor():
             while True:
@@ -243,4 +243,3 @@ class TCP_Manager(Plugin):
                     await self.publish('Bifrost.Monitors.TCP_STATUS', msg)
 
         self.loop.create_task(monitor())
-    
