@@ -1,0 +1,246 @@
+<!DOCTYPE HTML>
+
+<html>
+  <style>
+	table, th, td {
+		border:1px solid black;
+	}
+  </style>
+  <body>
+	<head>
+      
+      <script type = "text/javascript">
+        function variableMessages(command) {
+            document.writeln("<br>")
+            if ("WebSocket" in window) {
+				//alert("WebSocket is supported by your Browser!");
+				
+				// Let us open a web socket
+				var ws = new WebSocket("ws://localhost:8082/variable_messages");
+				
+                ws.onopen = function() {
+					if (command){
+						ws.send(command)	
+					};
+                };
+				
+				ws.onmessage = function (evt) { 
+					var received_msg = evt.data; 
+					document.writeln(received_msg);
+					document.writeln("<br>")
+					document.writeln("<br>")
+				};
+				
+				ws.onclose = function() { 
+					window.location.reload();
+				};
+            }
+			else {
+				// The browser doesn't support WebSocket
+				alert("WebSocket NOT supported by your Browser!");
+            }
+        }
+		</script>
+
+	  <script>
+		function commandLoader(command) {
+			var ws = new WebSocket("ws://localhost:8082/variable_messages");
+			ws.onopen = function(){
+				ws.send(command)
+			}
+			
+			ws.onmessage = function (evt) {
+                var received_msg = evt.data;
+				var x = JSON.parse(received_msg);
+				for (var i in x){
+					if (i == "CL_RESULT"){
+						document.writeln(received_msg);
+						document.writeln("<br>")
+						break
+					}
+				}
+            };
+			
+			ws.onclose = function() { 
+				window.location.reload();
+			};
+		}
+		</script>
+
+	  <script type = "text/javascript">
+        function downlinkUpdates() {
+            document.writeln("<br>")
+            if ("WebSocket" in window) {
+				//alert("WebSocket is supported by your Browser!");
+				
+				// Let us open a web socket
+				var ws = new WebSocket("ws://localhost:8082/downlink_updates");
+				
+                ws.onopen = function() {
+					
+                    // Web Socket is connected, send data using send()
+                };
+				
+				ws.onmessage = function (evt) { 
+					var received_msg = evt.data;
+					document.writeln(received_msg);
+					document.writeln("<br>")
+					document.writeln("<br>")
+				};
+				
+				ws.onclose = function() { 
+					window.location.reload();
+				};
+            } else {
+				
+				// The browser doesn't support WebSocket
+				alert("WebSocket NOT supported by your Browser!");
+            }
+        }
+      </script>
+
+	  <script type = "text/javascript">
+		function realtimeTelem() {
+            document.writeln("<br>")
+            if ("WebSocket" in window) {
+				//alert("WebSocket is supported by your Browser!");
+				
+				// Let us open a web socket
+               	var ws = new WebSocket("ws://localhost:8082/tlm/realtime");
+				
+                ws.onopen = function() {
+					
+                    // Web Socket is connected, send data using send()
+				 	// ws.send('CL_LIST')
+                };
+				
+				ws.onmessage = function (evt) { 
+					var received_msg = evt.data; 
+					document.writeln(received_msg);
+					document.writeln("<br>")
+					document.writeln("<br>")
+				};
+				
+				ws.onclose = function() { 
+					window.location.reload();
+				};
+            } else {
+				
+				// The browser doesn't support WebSocket
+				alert("WebSocket NOT supported by your Browser!");
+            }
+        }
+		</script>
+	  
+	</head>
+	
+  <body>
+    <div id = "sse">
+      <a href = "javascript:variableMessages()">listen to variable_messages</a>
+	  <br>
+	  <a href = "javascript:downlinkUpdates()">listen to downlink_updates</a>
+	  <br>
+	  <a href = "javascript:realtimeTelem()">listen to telemetry</a>
+	  <br>
+	  <a href = "javascript:variableMessages('SLE_CLTU_RESTART')">restart CLTU</a>
+	  <br>
+	  <a href = "javascript:variableMessages('SLE_RAF_RESTART')">restart RAF</a>
+	  <br>
+	  <a href = "javascript:variableMessages('SLE_CLTU_STOP')">stop CLTU</a>
+	  <br>
+	  <a href = "javascript:variableMessages('SLE_RAF_STOP')">stop RAF</a>
+	  <br>
+	  <br>
+    </div>
+	
+	<form id='command_form'>
+	  <fieldset>
+    <legend>Select a command:</legend>
+
+    <div>
+      <input type="radio" id="CL_LIST" name="command" value="CL_LIST "
+             checked>
+      <label for="CL_LIST">CL_LIST</label>
+    </div>
+
+    <div>
+      <input type="radio" id="CL_SHOW" name="command" value="CL_SHOW ">
+      <label for="CL_SHOW"> CL_SHOW</label>
+    </div>
+
+    <div>
+      <input type="radio" id="CL_VALIDATE" name="command" value="CL_VALIDATE ">
+      <label for="CL_VALIDATE">CL_VALIDATE</label>
+    </div>
+
+	<div>
+      <input type="radio" id="CL_EXECUTE" name="command" value="CL_EXECUTE ">
+      <label for="CL_EXECUTE">CL_EXECUTE</label>
+    </div>
+	<br>
+
+	args: <input type="text" name="args" value="">
+
+	<input type="button" id="cl_submit" value="Submit" onclick="javascript:commandLoader(command.value+args.value)">
+	</form>
+	</fieldset>
+
+
+
+
+	<br></br>
+	<table>
+	  <thead>
+        <tr>
+          <th colspan="3">Sample Commands</th>
+        </tr>
+		<tr>
+          <th colspan="1">Command</th>
+		  <th colspan="1">Args</th>
+		  <th colspan="1">Note</th>
+        </tr>
+	  </thead>
+	  <tbody>
+        <tr>
+          <td>LIST</td>
+          <td> </td>
+		  <td> Show the contents of a path. Args can be empty (default paths) or a path </td>
+        </tr>
+		<tr>
+          <td>SHOW</td>
+          <td>/home/jpluser/products/uplink/command_lists/example.cl
+			<br></br>
+			/home/jpluser/products/uplink/uplink_commands/cowboy-bebop-lineup.jpg_uplink_products
+		  </td>
+		  <td>Show a string representation of the script, or uplink summary json</td>
+        </tr>
+		<tr>
+          <td>VALIDATE</td>
+          <td>/home/jpluser/products/uplink/command_lists/example.cl
+			<br></br>
+			/home/jpluser/products/uplink/command_lists/test.py
+			<br></br>
+			/home/jpluser/products/uplink/uplink_commands/cowboy-bebop-lineup.jpg_uplink_products
+			<br></br>
+			INNOFLIGHT_SCR106_INIT_AND_POWER_TRANSMITTER NO_OVERWRITE_IMMEDIATE 0 2 36000 60 /mnt/fsw/configuration/innoflightScr106/txHighRateConfig.xml'
+		  </td>
+		  <td>Show validation of scripts' elements, single command, ulpink directory, or if a python file exists</td>
+        </tr>
+		<tr>
+          <td>EXECUTE</td>
+          <td>
+			/home/jpluser/products/uplink/command_lists/example.cl
+			<br></br>
+			/home/jpluser/products/uplink/command_lists/test.py
+			<br></br>
+			/home/jpluser/products/uplink/uplink_commands/cowboy-bebop-lineup.jpg_uplink_products
+			<br></br>
+			INNOFLIGHT_SCR106_INIT_AND_POWER_TRANSMITTER NO_OVERWRITE_IMMEDIATE 0 2 36000 60 /mnt/fsw/configuration/innoflightScr106/txHighRateConfig.xml'
+		  </td>
+		  <td>Execute a python or command loader script, or file uplink</td>
+        </tr>
+	  </tbody>
+	</table>
+	
+  </body>
+</html>
