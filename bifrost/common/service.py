@@ -80,6 +80,7 @@ class Service():
         for i in pending:
             i.cancel()
         #print(f"{self.name} is receiveing sigkill.")
+        os.system('pkill -9 Bifrost') # Work around to kill gunicorn task until supervisord implementation
         os.kill(os.getpid(), signal.SIGKILL)
         # And stay dead.
         
