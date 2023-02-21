@@ -3,7 +3,6 @@ from bifrost.common.loud_exception import with_loud_exception, with_loud_corouti
 from bifrost.common.deep_dictionary_get import deep_get
 import bifrost.services.core.configuration as cfg
 
-import ait.core.cfg
 from pathlib import Path
 import inotify.adapters
 import asyncio
@@ -34,7 +33,6 @@ class Configuration(Service):
 
     @with_loud_coroutine_exception
     async def request_downlink_path(self, topic, data, reply):
-        #print("YOYOYOY")
         await self.publish(reply, self.downlink_path)
 
     @with_loud_coroutine_exception

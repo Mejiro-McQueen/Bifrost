@@ -30,13 +30,17 @@ setup(
         'uvicorn',
         'uvloop',
         'websockets',
+        # AIT-DSN Junk
+        'gevent==1.5.0',
+        'greenlet==0.4.16',
     ],
     packages=find_packages(),
     scripts=['bifrost/bin/bifrost',
              'bifrost/bin/subscribers/websocket/bifrost.messages',
              'bifrost/bin/subscribers/websocket/bifrost.realtime',
              'bifrost/bin/subscribers/websocket/bifrost.monitors',
-             'bifrost/bin/subscribers/websocket/bifrost.command_loader'
+             'bifrost/bin/subscribers/websocket/bifrost.command_loader',
+             'bifrost/bin/subscribers/websocket/bifrost.downlink_updates',
              ],
     extras_require={
         'tests': [
