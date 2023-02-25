@@ -47,7 +47,10 @@ class Service():
 
     async def nc_connect(self):
         try:
-            self.nc = await nats.connect("nats://localhost:4222",
+            NATS_HOST = os.environ.get('NATS_HOST')
+            if not NATS_HOST:
+                NATS_HOST = 'localhost'
+            self.nc = await nats.connect(f"nats://{NATS_HOST}:4222",
                                          name=f'Bifrost-{self.name}',
                                          error_cb=self.handle_nats_error)
             self.js = self.nc.jetstream()
