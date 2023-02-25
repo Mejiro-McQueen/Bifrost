@@ -21,7 +21,6 @@ Classes:
     RAF: An extension of the generic ait.dsn.sle.common.SLE class which
         implements the RAF standard.
 '''
-import struct
 
 import ait
 import ait.core.log
