@@ -39,14 +39,13 @@ class Web_Server(Service):
                                  WebSocketRoute('/variable_messages', endpoint=self.ws_variable_messages),
                                  WebSocketRoute('/monitors', endpoint=self.ws_monitors),
                                  WebSocketRoute('/downlink_updates', endpoint=self.ws_downlink_updates),
+                                 WebSocketRoute('/subscribe', endpoint=self.ws_subscribe),
                                  Route('/', self.homepage),
-                                 Route('/pubsub', self.pubsub),
                                  Route("/dict/{dict_type:str}", self.cmd_dict),
                                  Route("/sle/raf/{directive:str}", self.sle_raf_directive),
                                  Route("/sle/cltu/{directive:str}", self.sle_cltu_directive),
                                  Route("/config", self.config_request),
                              ])
-        
         self.server_task = self.loop.create_task(self.start_server())
 
     @with_loud_coroutine_exception
@@ -54,12 +53,23 @@ class Web_Server(Service):
         return JSONResponse(self.name)
 
     @with_loud_coroutine_exception
-    async def pubsub(self, request):
-        req = await request.body()
-        sub = await self.nc.subscribe('Telemetry.AOS.VCID.1.TaggedPacket.>')
-        async for msg in sub.messages:
-            d = pickle.loads(msg.data)
-            return JSONResponse(d)
+    async def ws_subscribe(self, websocket):
+        try:
+            await websocket.accept()
+            while True:
+                req = await websocket.receive_json()
+                topic_request = req['topic']
+                sub = await self.nc.subscribe(topic_request)
+                async for msg in sub.messages:
+                    d = pickle.loads(msg.data)
+                    m = {'subject': msg.subject,
+                         'message': d}
+                    await websocket.send_json(m)
+        except WebSocketDisconnect:
+            pass
+        except TypeError:
+            print(f'{m} is not JSONable')
+        
 
     @with_loud_coroutine_exception
     async def ws_telemetry(self, websocket):
