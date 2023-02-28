@@ -85,10 +85,12 @@ class Subscription:
                 data = await self.write_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
+                self.sent_counter += 1
 
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
                 await self.read_queue.put((self.topic, data))
+                self.receive_counter += 1
 
     async def handle_client(self):
         self.reader, self.writer = await asyncio.open_connection(self.hostname, self.port)
@@ -97,11 +99,13 @@ class Subscription:
                 data = await self.write_queue.get()
                 self.writer.write(data)
                 await self.writer.drain()
+                self.sent_counter += 1
 
             elif self.mode is Mode.RECEIVE:
                 data = await self.reader.read(self.receive_size_bytes)
                 await self.read_queue.put((self.topic, data))
-
+                self.receive_counter += 1
+         
     @with_loud_exception
     async def start(self):
         try:

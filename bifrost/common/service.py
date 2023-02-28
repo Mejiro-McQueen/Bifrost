@@ -60,7 +60,8 @@ class Service():
             traceback.print_exc()
             log.error(e)
             exit()
-    
+
+    @with_loud_exception
     def start(self):
         try:
             setproctitle.setproctitle(f'Bifrost.{self.name}')
@@ -68,7 +69,8 @@ class Service():
             pending = asyncio.all_tasks(self.loop)
             self.loop.run_until_complete(asyncio.gather(*pending))
         except asyncio.exceptions.CancelledError:
-            log.error(f"Cancelling tasks!")
+            log.error(f"{self.name} => Cancelling tasks!")
+            # Known issue is not quoting topic string in services.yaml
             os.kill(os.getpid(), signal.SIGTERM)
             exit()
         except Exception as e:

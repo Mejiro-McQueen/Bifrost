@@ -41,7 +41,7 @@ class Launcher(Service):
                 for (plugin_class, metadata) in service_metadata_dict.items():
                     class_name = Path(plugin_class).suffix[1:]
                     if metadata.get('disabled', False):
-                        print(f"{Fore.RED}Bifrost Launch Service:  {class_name} is disabled.{Fore.RESET}")
+                        print(f"{Fore.RED}Bifrost Launch Service: {class_name} is disabled.{Fore.RESET}")
                         continue
                     elif class_name in self.process_map_to_pid:
                         continue
