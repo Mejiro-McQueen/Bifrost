@@ -7,16 +7,15 @@ from bifrost.common.ccsds_packet import Packet_State, CCSDS_Packet
 class AOS_to_CCSDS_Depacketization():
     def __init__(self):
         self.bytes_from_previous_frames = bytes()
-        self.happy_customers = 0
-
-    def depacketize(self, data):
+        
+    def __call__(self, data):
         log.debug("NEW")
 
         def attempt_packet(data):
             stat, p = CCSDS_Packet.decode(data)
             if stat == Packet_State.COMPLETE:
                 log.debug(f"{Fore.GREEN} Got a packet! {Fore.RESET}")
-                accumulated_packets.append(p.encoded_packet)
+                accumulated_packets.append(p)
                 self.bytes_from_previous_frames = bytes()
                 return p.get_next_index()
 

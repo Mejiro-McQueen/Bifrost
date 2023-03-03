@@ -1158,12 +1158,21 @@ class TlmDict(dict):
         dictionary filename or YAML string.
         """
         self.filename = None
+        self.opcode_to_defn = {}
 
         if len(args) == 1 and len(kwargs) == 0 and type(args[0]) == str:
             dict.__init__(self)
             self.load(args[0])
+  
         else:
             dict.__init__(self, *args, **kwargs)
+
+    def lookup_by_opcode(self, opcode):
+        if not hasattr(self, 'opcode_to_defn'):
+            # Goofy initialization
+            self.opcode_to_defn = {packet_defn.opcode: packet_defn
+                                   for packet_defn in self.values()}
+        return self.opcode_to_defn.get(opcode, None)
 
     def add(self, defn):
         """Adds the given Packet Definition to this Telemetry Dictionary."""
@@ -1200,6 +1209,7 @@ class TlmDict(dict):
 
             if isinstance(stream, IOBase):
                 stream.close()
+
 
     def toJSON(self):  # noqa
         return {name: defn.toJSON() for name, defn in self.items()}

@@ -25,6 +25,7 @@ class CCSDS_Packet():
                  SEC_HDR_FLAG=0, APPLICATION_PROCESS_IDENTIFIER=0,
                  SEQUENCE_FLAGS=0, PACKET_SEQUENCE_OR_NAME=0,
                  PACKET_DATA_LENGTH=0, data=b''):
+        """Don't call this directly, use decode"""
         self.data = data
         self.primary_header = {}
         self.primary_header[HeaderKeys.PACKET_VERSION_NUMBER.name] = PACKET_VERSION_NUMBER
@@ -37,13 +38,14 @@ class CCSDS_Packet():
             self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name] = len(data)-1
         else:
             self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name] = PACKET_DATA_LENGTH
-        self.secondary_header = {}
+        self.secondary_header = {}  # TODO Handle secondary header
 
         self.encoded_packet = bytes()
         self.error = None
 
     @staticmethod
     def decode(packet_bytes):
+        """Generate a packet"""
         data_length = int.from_bytes(packet_bytes[4:6], 'big')
         if not data_length: # regular check is apid 111111....
             #log.warn("Underflow: Insufficient Data")
