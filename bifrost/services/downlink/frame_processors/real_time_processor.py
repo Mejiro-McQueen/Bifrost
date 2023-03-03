@@ -1,31 +1,35 @@
 from bifrost.common.service import Service
 from bifrost.common.loud_exception import with_loud_exception, with_loud_coroutine_exception
-from bifrost.services.downlink.frame_processors.depacketizer import Depacketizer
+from bifrost.services.downlink.frame_processors.depacketizer import Frame_Depacketizer
+
 from ait.core import log
 import traceback
-from bifrost.services.downlink.depacketizers.aos_to_ccsds import AOS_to_CCSDS_Depacketization
+from sunrise.depacketizers.sunrise_depacketizer import SunRISE_Depacketization
+from bifrost.services.downlink.frame_processors.packet_tagger import CCSDS_Packet_Tagger
 
 
-class RealTime_Telemetry_Frame_Processor(Service, Depacketizer):
+class RealTime_Telemetry_Frame_Processor(Service):
     """
-    Calls processor object and publish its publishables.
+    Depacketize frames
+    Tag packets
     """
     def __init__(self):
         Service.__init__(self)
-        Depacketizer.__init__(self, AOS_to_CCSDS_Depacketization)
         self.vcid = 1
         self.processor_name = "Real Time Telemetry"
+        self.frame_depacketizer = Frame_Depacketizer(SunRISE_Depacketization,
+                                                     self.processor_name)
+        self.packet_tagger = CCSDS_Packet_Tagger(self.vcid, self.processor_name)
         self.start()
 
     async def process(self, topic, data, reply):
         log.debug(f"REAL TIME! {data.channel_counter}")
         try:
-            tagged_packets = await self.depacketize(data)
+            packets = self.frame_depacketizer(data)
+            tagged_packets = self.packet_tagger(packets)
             for tagged_packet in tagged_packets:
                 subj = f'Telemetry.AOS.VCID.{tagged_packet.vcid}.TaggedPacket.{tagged_packet.packet_name}'
-                await self.publish(subj,
-                                   tagged_packet.subset_map())
-            return
+                await self.publish(subj, tagged_packet.subset_map())
         except Exception as e:
             log.error(e)
             traceback.print_exc()

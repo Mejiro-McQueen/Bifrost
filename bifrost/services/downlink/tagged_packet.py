@@ -12,23 +12,21 @@ sv_name = ait.config.get('sunrise.sv_name')
 @dataclass
 class TaggedPacket:
     packet: bytearray
-    packet_definition: str
-    user_data_field: bytearray
-    pass_number: int
+    packet_name: str
+    packet_uid: int
+    pass_number: int = pass_number
     vcid: int = -1
     processor_name: str = ""
     processor_counter: int = -1
     decoded_map: map = field(init=False)
-    event_time_gps: astropy.time.core.Time = field(init=False) # Change varname to spacecraft_time_gps
+    packet_time: astropy.time.core.Time = field(init=False) # Change varname to spacecraft_time_gps
     time_processed_utc: astropy.time.core.Time = field(init=False)
     field_alarms: dict = field(default_factory=dict)
-    packet_uid: int = field(init=False)
-    packet_name: str = field(init=False)
     
     def subset_map(self):
-        self.event_time_gps.format = 'iso'
+        self.packet_time.format = 'iso'
         t_proc = str(self.time_processed_utc)
-        t_event_time = str(self.event_time_gps)
+        t_event_time = str(self.packet_time)
         interests = {
             'sv_identifier': sv_identifier,
             'sv_name': sv_name,
@@ -36,17 +34,13 @@ class TaggedPacket:
             'field_alarms': self.field_alarms,
             'decoded_packet': self.decoded_map,
             'time_processed_utc': t_proc,
-            'event_time_gps': t_event_time,
+            'packet_time': t_event_time,
             'vcid': self.vcid,
             'processor_name': self.processor_name,
             'processor_counter': self.processor_counter,
-            #'packet_uid': self.packet_uid,
-            #'user_data_field': self.user_data_field,
             'pass_number': self.pass_number
         }
         return interests
 
     def __post_init__(self):
-        self.packet_uid = self.packet_definition.uid
-        self.packet_name = self.packet_definition.name
         self.time_processed_utc = str(utc_timestamp_now())

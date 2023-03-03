@@ -84,7 +84,7 @@ class Influx(Service):
             packet_name = packet_metadata['packet_name']
             decoded = packet_metadata['decoded_packet']
             alarms = packet_metadata['field_alarms']
-            gps_timestamp = packet_metadata['event_time_gps']
+            gps_timestamp = packet_metadata['packet_time']
             pass_number = packet_metadata['pass_number']
             alarm_tags = {c.name: None for c in Alarm_State}
             fields = {}
