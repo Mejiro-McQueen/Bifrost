@@ -6,6 +6,8 @@ import traceback
 from bifrost.services.downlink.alarms import Alarm_State
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 pass_number = ait.config.get('sunrise.pass_id')
 sv_name = ait.config.get('sunrise.sv_name')
 bucket = sv_name
@@ -27,7 +29,8 @@ class Influx(Service):
         try:
             self.client = InfluxDBClient(url=self.host_url,
                                          token=self.api_token,
-                                         org=self.org)
+                                         org=self.org,
+                                         verify_ssl=False)
             #query_api = client.query_api()
             self.buckets_api = self.client.buckets_api()
             self.buckets_api.create_bucket(bucket_name=sv_name,
