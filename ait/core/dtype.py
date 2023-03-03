@@ -72,7 +72,7 @@ import re
 
 from typing import Dict, Any
 
-from ait.core import cmd, dmc, log
+from ait.core import cmd, log
 
 
 # PrimitiveTypes
@@ -656,158 +656,158 @@ class Time8Type(PrimitiveType):
         return result
 
 
-class Time32Type(PrimitiveType):
-    """Time32Type
+# class Time32Type(PrimitiveType):
+#     """Time32Type
 
-    This four byte time represents the elapsed time in seconds since
-    the GPS epoch.
-    """
+#     This four byte time represents the elapsed time in seconds since
+#     the GPS epoch.
+#     """
 
-    def __init__(self):
-        super(Time32Type, self).__init__("MSB_U32")
+#     def __init__(self):
+#         super(Time32Type, self).__init__("MSB_U32")
 
-        self._pdt = self.name
-        self._name = "TIME32"
+#         self._pdt = self.name
+#         self._name = "TIME32"
 
-    @property
-    def pdt(self):
-        """PrimitiveType base for the ComplexType"""
-        return self._pdt
+#     @property
+#     def pdt(self):
+#         """PrimitiveType base for the ComplexType"""
+#         return self._pdt
 
-    def encode(self, value):
-        """encode(value) -> bytearray
+#     def encode(self, value):
+#         """encode(value) -> bytearray
 
-        Encodes the given value to a bytearray according to this
-        ComplexType definition.
-        """
-        if not isinstance(value, datetime.datetime):
-            raise TypeError("encode() argument must be a Python datetime")
+#         Encodes the given value to a bytearray according to this
+#         ComplexType definition.
+#         """
+#         if not isinstance(value, datetime.datetime):
+#             raise TypeError("encode() argument must be a Python datetime")
 
-        return super(Time32Type, self).encode(dmc.to_gps_seconds(value))
+#         return super(Time32Type, self).encode(dmc.to_gps_seconds(value))
 
-    def decode(self, bytes, raw=False):
-        """decode(bytearray, raw=False) -> value
+    # def decode(self, bytes, raw=False):
+    #     """decode(bytearray, raw=False) -> value
 
-        Decodes the given bytearray containing the elapsed time in
-        seconds since the GPS epoch and returns the corresponding
-        Python :class:`datetime`.
+    #     Decodes the given bytearray containing the elapsed time in
+    #     seconds since the GPS epoch and returns the corresponding
+    #     Python :class:`datetime`.
 
-        If the optional parameter ``raw`` is ``True``, the integral
-        number of seconds will be returned instead.
-        """
-        sec = super(Time32Type, self).decode(bytes)
-        return sec if raw else dmc.to_local_time(sec)
-
-
-class Time40Type(PrimitiveType):
-    """Time40Type
-
-    This five byte time is made up of four bytes of seconds and one
-    byte of (1 / 256) subseconds, representing the elapsed time since
-    the GPS epoch.
-    """
-
-    def __init__(self):
-        super(Time40Type, self).__init__("MSB_U32")
-
-        self._pdt = self.name
-        self._name = "TIME40"
-        self._nbits = 40
-        self._nbytes = 5
-
-    @property
-    def pdt(self):
-        """PrimitiveType base for the ComplexType"""
-        return self._pdt
-
-    def encode(self, value):
-        """encode(value) -> bytearray
-
-        Encodes the given value to a bytearray according to this
-        ComplexType definition.
-        """
-        if not isinstance(value, datetime.datetime):
-            raise TypeError("encode() argument must be a Python datetime")
-
-        coarse = Time32Type().encode(value)
-        fine = Time8Type().encode(value.microsecond / 1e6)
-
-        return coarse + fine
-
-    def decode(self, bytes, raw=False):
-        """decode(bytearray, raw=False) -> value
-
-        Decodes the given bytearray containing the elapsed time in
-        seconds plus 1/256 subseconds since the GPS epoch returns the
-        corresponding Python :class:`datetime`.
-
-        If the optional parameter ``raw`` is ``True``, the number of
-        seconds and subseconds will be returned as a floating-point
-        number instead.
-        """
-        coarse = Time32Type().decode(bytes[:4], raw)
-        fine = Time8Type().decode(bytes[4:])
-
-        if not raw:
-            fine = datetime.timedelta(microseconds=fine * 1e6)
-
-        return coarse + fine
+    #     If the optional parameter ``raw`` is ``True``, the integral
+    #     number of seconds will be returned instead.
+    #     """
+    #     sec = super(Time32Type, self).decode(bytes)
+    #     return sec if raw else dmc.to_local_time(sec)
 
 
-class Time64Type(PrimitiveType):
-    """Time64Type
+# class Time40Type(PrimitiveType):
+#     """Time40Type
 
-    This eight byte time is made up of four bytes of seconds and four
-    bytes of nanoseconds, representing the elapsed time since the GPS
-    epoch.
-    """
+#     This five byte time is made up of four bytes of seconds and one
+#     byte of (1 / 256) subseconds, representing the elapsed time since
+#     the GPS epoch.
+#     """
 
-    def __init__(self):
-        super(Time64Type, self).__init__("MSB_U64")
+#     def __init__(self):
+#         super(Time40Type, self).__init__("MSB_U32")
 
-        self._pdt = self.name
-        self._name = "TIME64"
+#         self._pdt = self.name
+#         self._name = "TIME40"
+#         self._nbits = 40
+#         self._nbytes = 5
 
-    @property
-    def pdt(self):
-        """PrimitiveType base for the ComplexType"""
-        return self._pdt
+#     @property
+#     def pdt(self):
+#         """PrimitiveType base for the ComplexType"""
+#         return self._pdt
 
-    def encode(self, value):
-        """encode(value) -> bytearray
+#     def encode(self, value):
+#         """encode(value) -> bytearray
 
-        Encodes the given value to a bytearray according to this
-        ComplexType definition.
-        """
-        if not isinstance(value, datetime.datetime):
-            raise TypeError("encode() argument must be a Python datetime")
+#         Encodes the given value to a bytearray according to this
+#         ComplexType definition.
+#         """
+#         if not isinstance(value, datetime.datetime):
+#             raise TypeError("encode() argument must be a Python datetime")
 
-        coarse = Time32Type().encode(value)
-        fine = get("MSB_U32").encode(value.microsecond * 1e3)
+#         coarse = Time32Type().encode(value)
+#         fine = Time8Type().encode(value.microsecond / 1e6)
 
-        return coarse + fine
+#         return coarse + fine
 
-    def decode(self, bytes, raw=False):
-        """decode(bytearray, False) -> value
+#     def decode(self, bytes, raw=False):
+#         """decode(bytearray, raw=False) -> value
 
-        Decodes the given bytearray containing the elapsed time in
-        seconds plus nanoseconds since the GPS epoch and and returns
-        the corresponding Python :class:`datetime`.  NOTE: The Python
-        :class:`datetime` class has only microsecond resolution.
+#         Decodes the given bytearray containing the elapsed time in
+#         seconds plus 1/256 subseconds since the GPS epoch returns the
+#         corresponding Python :class:`datetime`.
 
-        If the optional parameter ``raw`` is ``True``, the number of
-        seconds and nanoseconds will be returned as a floating-point
-        number instead.
-        """
-        coarse = Time32Type().decode(bytes[:4], raw)
-        fine = get("MSB_U32").decode(bytes[4:])
+#         If the optional parameter ``raw`` is ``True``, the number of
+#         seconds and subseconds will be returned as a floating-point
+#         number instead.
+#         """
+#         coarse = Time32Type().decode(bytes[:4], raw)
+#         fine = Time8Type().decode(bytes[4:])
 
-        if raw:
-            fine /= 1e9
-        else:
-            fine = datetime.timedelta(microseconds=fine / 1e3)
+#         if not raw:
+#             fine = datetime.timedelta(microseconds=fine * 1e6)
 
-        return coarse + fine
+#         return coarse + fine
+
+
+# class Time64Type(PrimitiveType):
+#     """Time64Type
+
+#     This eight byte time is made up of four bytes of seconds and four
+#     bytes of nanoseconds, representing the elapsed time since the GPS
+#     epoch.
+#     """
+
+#     def __init__(self):
+#         super(Time64Type, self).__init__("MSB_U64")
+
+#         self._pdt = self.name
+#         self._name = "TIME64"
+
+#     @property
+#     def pdt(self):
+#         """PrimitiveType base for the ComplexType"""
+#         return self._pdt
+
+#     def encode(self, value):
+#         """encode(value) -> bytearray
+
+#         Encodes the given value to a bytearray according to this
+#         ComplexType definition.
+#         """
+#         if not isinstance(value, datetime.datetime):
+#             raise TypeError("encode() argument must be a Python datetime")
+
+#         coarse = Time32Type().encode(value)
+#         fine = get("MSB_U32").encode(value.microsecond * 1e3)
+
+#         return coarse + fine
+
+#     def decode(self, bytes, raw=False):
+#         """decode(bytearray, False) -> value
+
+#         Decodes the given bytearray containing the elapsed time in
+#         seconds plus nanoseconds since the GPS epoch and and returns
+#         the corresponding Python :class:`datetime`.  NOTE: The Python
+#         :class:`datetime` class has only microsecond resolution.
+
+#         If the optional parameter ``raw`` is ``True``, the number of
+#         seconds and nanoseconds will be returned as a floating-point
+#         number instead.
+#         """
+#         coarse = Time32Type().decode(bytes[:4], raw)
+#         fine = get("MSB_U32").decode(bytes[4:])
+
+#         if raw:
+#             fine /= 1e9
+#         else:
+#             fine = datetime.timedelta(microseconds=fine / 1e3)
+
+#         return coarse + fine
 
 
 # ComplexTypeMap
@@ -818,9 +818,9 @@ ComplexTypeMap = {
     "CMD16": CmdType(),
     "EVR16": EVRType(),
     "TIME8": Time8Type(),
-    "TIME32": Time32Type(),
-    "TIME40": Time40Type(),
-    "TIME64": Time64Type(),
+#    "TIME32": Time32Type(),
+#    "TIME40": Time40Type(),
+#    "TIME64": Time64Type(),
 }
 
 
