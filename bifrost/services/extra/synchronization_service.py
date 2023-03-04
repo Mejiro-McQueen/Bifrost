@@ -32,7 +32,7 @@ class SyncByte():
         return msg
 
 
-class Synchronization(Service):
+class Synchronization_Service(Service):
     def __init__(self):
         super().__init__()
         self.sync_obj = None
@@ -96,7 +96,7 @@ class DeSyncByte():
         return res
 
 
-class Desynchronization(Service):
+class Desynchronization_Service(Service):
     def __init__(self):
         super().__init__()
         self.desync_byte = DeSyncByte()
