@@ -1,24 +1,23 @@
-import traceback
-from bifrost.services.downlink.alarms import Alarm_Check
-
-from bifrost.services.downlink.tagged_packet import TaggedPacket
-from bifrost.services.downlink.frame_processors.utility import date_time_from_gps_s_ns
-import struct
 from ait.core import log
-import sys
 from ait.core import tlm
+from bifrost.services.downlink.alarms import Alarm_Check
+from bifrost.services.downlink.tagged_packet import TaggedPacket
+import struct
+import sys
 
-tlm_dict = tlm.getDefaultDict()
+tlm_dict = tlm.getDefaultDict()  # Call to AIT
 
 
 class CCSDS_Packet_Tagger:
-    def __init__(self, vcid, processor_name):
+    """Timestamp is a function that provides a datetime like object whenever a packet is passed into it"""
+    def __init__(self, vcid, processor_name, timestamp_from_packet):
         # This is junk
         self.counter = 0
         self.processor_name = processor_name
         self.vcid = vcid
         self.alarm_check = Alarm_Check()
-
+        self.timestamp_from_packet = timestamp_from_packet
+        
     def __call__(self, packets):
         tagged_packets = []
         for packet in packets:
@@ -40,7 +39,7 @@ class CCSDS_Packet_Tagger:
                 tagged_packet.field_alarms = self.get_alarm_map(tagged_packet)
 
                 # Time Stamping
-                tagged_packet.packet_time = self.get_time_stamp(tagged_packet)
+                tagged_packet.packet_time = self.timestamp_from_packet(tagged_packet)
                 
                 # Metadata Stamping
                 tagged_packet.packet_name = packet_def.name
@@ -69,10 +68,3 @@ class CCSDS_Packet_Tagger:
             field_alarms[packet_field] = {'state': alarm_state.name,
                                           'threshold': threshold}
         return field_alarms
-
-    def get_time_stamp(self, tagged_packet):
-        # TODO, allow this function to be passed in when the depacketizer is initialized
-        # Sometimes the secondary header is used instead of telemetry data
-        gps_t_s = tagged_packet.decoded_map['seconds']
-        gps_t_ns = tagged_packet.decoded_map['nanoseconds']
-        return date_time_from_gps_s_ns(gps_t_s, gps_t_ns)
