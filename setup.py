@@ -41,6 +41,7 @@ setup(
              'bifrost/bin/subscribers/websocket/bifrost.monitors',
              'bifrost/bin/subscribers/websocket/bifrost.command_loader',
              'bifrost/bin/subscribers/websocket/bifrost.downlink_updates',
+             'bifrost/bin/subscribers/websocket/bifrost.inject',
              ],
     extras_require={
         'tests': [

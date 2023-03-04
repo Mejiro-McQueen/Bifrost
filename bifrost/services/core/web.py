@@ -40,6 +40,7 @@ class Web_Server(Service):
                                  WebSocketRoute('/monitors', endpoint=self.ws_monitors),
                                  WebSocketRoute('/downlink_updates', endpoint=self.ws_downlink_updates),
                                  WebSocketRoute('/subscribe', endpoint=self.ws_subscribe),
+                                 WebSocketRoute("/service_directive", self.ws_service_directive),
                                  Route('/', self.homepage),
                                  Route("/dict/{dict_type:str}", self.cmd_dict),
                                  Route("/sle/raf/{directive:str}", self.sle_raf_directive),
@@ -172,6 +173,16 @@ class Web_Server(Service):
         directive = f'Bifrost.Directive.SLE.CLTU.{directive}'
         await self.publish(directive, None)
         return JSONResponse(f"OK, {directive}")
+
+    @with_loud_coroutine_exception
+    async def ws_service_directive(self, websocket):
+        await websocket.accept()
+        m = await websocket.receive_json()
+        for i in m:
+            directive = i['directive']
+            body = i['body']
+            await self.publish(directive, body)
+            await websocket.send_json(f"OK, {directive}")
 
     @with_loud_coroutine_exception
     async def ws_downlink_updates(self, websocket):
