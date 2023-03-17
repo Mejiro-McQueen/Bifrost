@@ -19,7 +19,7 @@ What is AIT?
 ============
 AIT is the AMMOS Instrument Toolkit [https://github.com/NASA-AMMOS/AIT-Core] which is an MIT licensed software developed and maintained by Jet Propulsion Laboratory. Some of the components of Bifrost were provided by AMMOS, the AIT project and its open source contributors.
 
-- Bifrost leverages the SLE, SLS, and AOS frames libraries from AIT-DSN.
+- Bifrost leverages the DSN Interfaces, and Transfer Frame frames libraries from AIT-DSN.
 - Bifrost leverages the command and telemetry dictionary capabilities from AIT-Core.
 - Even though the Bifrost service to use them exists, the AIT SLS libraries are dependant on the KMC Client and KMC server developed by AMMOS (They are not included in Bifrost, you're on your own on this one).
   
@@ -64,22 +64,25 @@ Getting Started
 ===============
 - How do I install Bifrost?
   You'll need PIP, a NATS server (quick docker instructions below), and a configuration file. We'll use conda to sort out our virtual environments.
-  0. Setup your project distribution for AIT.
-  1. Make a new directory and clone: your project repository, Bifrost
-  1. ``conda create -y -q --name $(PROJECT_NAME) python=$(PYTHON_VERSION)``
-  2. ``conda env config vars set AIT_CONFIG=./$(project_dir)/config/config.yaml BIFROST_SERVICES_CONFIG='$(project_dir)/config/services.yaml' SDLS=ENC``
-  3. ``pip install -e ./Bifrost``
-  4. ``pip install -e ./$(your project)``
-  4. ``docker container rm nats --force && docker run --name nats  -p 4222:4222 -p 8222:8222 nats -js --http_port 8222 --debug``
   
-
+  1. Setup your project distribution for AIT.
+  2. Make a new directory and clone: your project repository, Bifrost
+  3. ``conda create -y -q --name $(PROJECT_NAME) python=$(PYTHON_VERSION)``
+  4. ``conda env config vars set AIT_CONFIG=./$(project_dir)/config/config.yaml BIFROST_SERVICES_CONFIG='$(project_dir)/config/services.yaml' SDLS=ENC``
+  5. ``pip install -e ./Bifrost``
+  6. ``pip install -e ./$(your project)``
+  7. ``docker container rm nats --force && docker run --name nats  -p 4222:4222 -p 8222:8222 nats -js --http_port 8222 --debug``
+  
 - How do I run Bifrost?
  ``bifrost``
 
 - How can I see some data flow?
-  ``bifrost.messages`` for viewing the message stream.
-  ``bifrost.realtime`` for viewing telemetry output.
-  ``bifrost.command_loader`` for sending commands (edit this file).
+      - ``bifrost.messages`` for viewing the message stream.
+      - ``bifrost.realtime`` for viewing telemetry output.
+      - ``bifrost.command_loader`` for sending commands (edit this file).
+  
+- Is there a docker imgage available?
+Yes, fill out the docker.env file and use the docker-compose to quick start.
   
 How can I visualize or analyze my telemetry?
 ===========================================
