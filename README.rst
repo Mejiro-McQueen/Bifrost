@@ -62,7 +62,7 @@ Getting Started
       - ``bifrost.realtime`` for viewing telemetry output.
       - ``bifrost.command_loader`` for sending commands (edit this file).
   
-- Is there a docker imgage available?
+- Is there a docker image available?
 Yes, fill out the docker.env file and use the docker-compose to quick start.
   
 How can I visualize or analyze my telemetry?
