@@ -67,7 +67,7 @@ class Service():
             setproctitle.setproctitle(f'Bifrost.{self.name}')
             self.running = True
             pending = asyncio.all_tasks(self.loop)
-            self.loop.run_until_complete(asyncio.gather(*pending))
+            self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
         except asyncio.exceptions.CancelledError:
             log.error(f"{self.name} => Cancelling tasks!")
             # Known issue is not quoting topic string in services.yaml

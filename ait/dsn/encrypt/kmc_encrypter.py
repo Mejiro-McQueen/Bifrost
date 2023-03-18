@@ -102,16 +102,16 @@ class KmcSdlsEncrypter(BaseEncrypter):
 
         # Pull config from the AIT config or keyword args
         lcl_config_list = kwargs.get(KmcSdlsEncrypter.prop_kmc_properties,
-                                    ait.config.get(
-                                        KmcSdlsEncrypter.cfg_client_config+"."+KmcSdlsEncrypter.prop_kmc_properties, []))
+                                     ait.config.get(
+                                         KmcSdlsEncrypter.cfg_client_config+"."+KmcSdlsEncrypter.prop_kmc_properties, []))
 
         # May need to format the properties
         self._kmc_config_list = self.format_config_list(lcl_config_list)
 
         # KMC-specific properties file
         kmc_props_file = kwargs.get(KmcSdlsEncrypter.prop_kmc_property_file,
-                             ait.config.get(
-                                 KmcSdlsEncrypter.cfg_client_config+"."+KmcSdlsEncrypter.prop_kmc_property_file, None))
+                                    ait.config.get(
+                                        KmcSdlsEncrypter.cfg_client_config+"."+KmcSdlsEncrypter.prop_kmc_property_file, None))
 
         if kmc_props_file:
             expanded_props_file = ait.dsn.util.utils.expand_path(kmc_props_file)

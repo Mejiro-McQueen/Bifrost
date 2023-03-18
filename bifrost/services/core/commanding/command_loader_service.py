@@ -1,4 +1,5 @@
 from bifrost.common.service import Service
+from bifrost.common.loud_exception import with_loud_exception, with_loud_coroutine_exception
 from pathlib import Path
 from ait.core import log
 import sunrise.packet_processors.scripts.sdlFts as sdlFts
@@ -7,6 +8,34 @@ import tqdm
 from colorama import Fore
 import traceback
 import asyncio
+from enum import Enum, auto
+import json
+
+class Command_Type(Enum):
+    FILE_UPLINK = auto()
+    COMMAND = auto()
+    CL = auto()
+    INVALID = auto()
+    SLEEP = auto()
+    ECHO = auto()
+
+
+def command_type_hueristic(i):
+    path = Path(i)
+    if path.is_dir() and list(path.glob("*uplink_metadata.json")):
+        res = Command_Type.FILE_UPLINK
+    elif path.is_file() and path.suffix in ['.cl']:
+        res = Command_Type.CL
+    elif "/" in str(path):
+        res = Command_Type.INVALID
+    elif 'echo' in i:
+        res = Command_Type.ECHO
+    elif 'sleep' in i:
+        res = Command_Type.SLEEP
+    else: #  We can probably just ask the dictionaries if the mnemonic is in the able
+        res = Command_Type.COMMAND
+    log.debug(res)
+    return res
 
 
 class CommandLoader():
@@ -18,21 +47,23 @@ class CommandLoader():
         self.default_cl_path = default_cl_path
         self.default_uplink_path = default_uplink_path
 
+    @with_loud_coroutine_exception
     async def command_execute(self, cmd_struct: CmdMetaData, execute=True):
         args = cmd_struct.payload_string.split(" ")
         command = args.pop(0)
         cleaned_args = [str(i) for i in self.clean_args(args)]
         command = ' '.join([command, *cleaned_args])
         try:
-            response = await self.request('Bifrost.Services.Command.Object',
+            response = await self.request('Bifrost.Services.Dictionary.Command.Raw',
                                           cmd_struct.payload_string)
             valid, obj = response
             if valid and execute:
-                cmd_struct.payload_bytes = obj.encode()
-                self.get_tracker(cmd_struct)
+               # cmd_struct.payload_bytes = obj.encode()
+                #self.update_tracker(cmd_struct)
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
+            traceback.print_exc()
             valid = False
         return valid
 
@@ -59,12 +90,14 @@ class CommandLoader():
         tracker = self.get_tracker(cmd_struct)
         tracker.close()
 
-    async def upload_dir(self, path, uid):
+    @with_loud_coroutine_exception
+    async def upload_dir(self, path):
         # SunRISE Special
         p = Path(path)
         if not list(p.glob("*uplink_metadata.json")):
             return {'valid': False}
         log.info(f"Uploading {p}")
+        uid = CmdMetaData.get_uid() # Huge sequences, so get a new uid
         try:
             metadata = sdlFts.send_uplink_products_from_directory(p, uid)
             for cmd_struct in metadata:
@@ -79,27 +112,26 @@ class CommandLoader():
             traceback.print_exc()
         return res
 
+    @with_loud_coroutine_exception
     async def validate(self, i):
-        """UseHeuristics to perform validate"""
-        res = {'valid': None}
+        """Use Heuristics to perform validate"""
+        command_type = command_type_hueristic(i)
+        res = {'valid': False}
         res = self.timestamp(res, 'start')
-        path = Path(i)
-        if path.is_dir():
-            # SunRISE Special
-            if list(path.glob("*uplink_metadata.json")):
-                res['valid'] = True
-            else:
-                res['valid'] = False
-        elif path.is_file():
-            if path.suffix == ".cl":
-                res['result'] = await self.cl_validate(path)
-                res['valid'] = all(i['valid'] for i in res['result'])
-            else:
-                res['valid'] = False
-        else:
+        if command_type is Command_Type.FILE_UPLINK:
+            res['valid'] = True
+        elif command_type is Command_Type.CL:
+            res['result'] = await self.cl_validate(Path(i))
+            res['valid'] = all(i['valid'] for i in res['result'])
+        elif command_type is Command_Type.COMMAND:
             cmd_struct = CmdMetaData(i)
-            res['valid'] = await self.command_execute(cmd_struct, execute=False)
-        print(res)
+            res['valid'], _ = await self.request('Bifrost.Services.Dictionary.Command.Validate',
+                                                 cmd_struct.payload_string)
+        elif command_type is Command_Type.ECHO:
+            res['valid'] = True
+        elif command_type is Command_Type.SLEEP:
+            _, t = i.split(' ')
+            res['valid'] = t.isnumeric()
         res = self.timestamp(res, 'finish')
         return res
 
@@ -117,108 +149,74 @@ class CommandLoader():
                 cleaned.append(i)
         return cleaned
 
-    async def execute(self, directive):
+    @with_loud_coroutine_exception
+    async def execute(self, directive, cmd_struct=None):
         """ Use Heuristics to determine what kind of execution to use"""
-        res = {'result': None}
-        res = self.timestamp(res, 'start')
-        path = Path(directive)
-        if path.is_dir():
-            # uplink directory
-            if list(path.glob("*uplink_metadata.json")):
-                log.debug("SUNRISE: Upload Directory")
-                uid = CmdMetaData.get_uid()
-                upload = asyncio.create_task(self.upload_dir(directive, uid))
-                res['result'] = 'Upload Task Started'
-                res['uid'] = str(uid)
-                res['valid'] = True
-            else:
-                res['result'] = False
-                res['valid'] = False
-        elif path.suffix == ".cl":
-            # command loader
-            log.debug("Execute CL script")
-            res['result'] = await self.execute_cl_script(path)
-            res['valid'] = all(i['valid'] for i in res['result'])
-        #elif path.suffix == ".py":
-            # TODO Do we need args?
-            #log.info(f"Execute python script")
-        #    result = self.execute_python(path)
+        if cmd_struct:
+            uid = cmd_struct.uid
         else:
+            uid = CmdMetaData.get_uid()
+            
+        res = {'result': None,
+               'uid': str(uid)}
+        res = self.timestamp(res, 'start')
+        res['result'] = False
+        res['valid'] = False
+        
+        command_type = command_type_hueristic(directive)
+            # uplink directory
+        if command_type is Command_Type.FILE_UPLINK:
+            upload = asyncio.create_task(self.upload_dir(directive))
+            res['result'] = 'Upload Task Started'
+            res['valid'] = True
+        elif command_type is Command_Type.CL:
+            # command loader script
+            log.debug("Execute CL script")
+            asyncio.create_task(self.execute_cl_script(Path(directive), uid))
+            res['result'] = 'Accepted'
+            res['valid'] = 'Maybe'
+        elif command_type is Command_Type.COMMAND:
             # raw command
             log.debug("Execute raw command")
-            cmd_struct = CmdMetaData(directive)
+            if not cmd_struct:
+                cmd_struct = CmdMetaData(directive)
             res['result'] = {'uid': str(cmd_struct.uid),
-                             'valid': await self.command_execute(cmd_struct),
-                             }
+                             'valid': await self.command_execute(cmd_struct)}
+        elif Command_Type is Command_Type.INVALID:
+            res['valid'] = False
+            res['result'] = "Invalid Command"
+        elif command_type is Command_Type.SLEEP:
+            _, t = directive.split(' ')
+            await asyncio.sleep(float(t))
+        elif command_type is Command_Type.ECHO:
+            log.info(directive)
+            res['valid'] = True
+            res['result'] = directive
         res = self.timestamp(res, 'finish')
         return res
 
-    async def execute_cl_script(self, path):
+    @with_loud_coroutine_exception
+    async def execute_cl_script(self, path, uid):
         log.info(f"Executing CL Script {path}")
-        res = []
-        commands = []
         with open(path, 'r') as f:
             cmd_strings = f.readlines()
         cmd_list = list(self.clean(cmd_strings))
         if not cmd_list:
             msg = f"{path=} is empty!"
             log.info(msg)
-            return {'valid': False}
+            return [{'command': '',
+                     'valid': False}]
+        res = []
+        sequence = 0
+        p = len([i for i in cmd_list if command_type_hueristic(i) is Command_Type.COMMAND])
         for i in cmd_list:
-            p = Path(i)
-            if 'sleep' in i:
-                # Change to regex at some point
-                _, t = i.split(' ')
-                res.append({'command': i,
-                            'valid': True})
-                commands.append((i, lambda: asyncio.sleep(float(t))))
-            elif 'echo' in i:
-                _, msg = i.split(' ')
-                res.append({'command': i,
-                            'valid': True})
-                commands.append((i, lambda: log.info(msg)))
-            elif p.is_dir():
-                if list(p.glob("*uplink_metadata.json")):
-                    log.info("SUNRISE: Upload Directory!")
-                    uid = CmdMetaData.get_uid()
-                    result = 'Upload Task Started'
-                    valid = True
-                    commands.append(('FILE_UPLINK',
-                                     lambda: self.upload_dir(p, uid)))
-                else:
-                    result = 'Invalid Uplink'
-                    valid = False
-                m = {'command': p,
-                     'valid': valid,
-                     'result': result}
-                if valid:
-                    m['uid'] = str(uid)
-                res.append(m)
-            else:
-                commands.append((i, CmdMetaData(i)))
-
-        uid = CmdMetaData.get_uid()
-        l = len([i for i in commands if not callable(i[1])])
-        i = 0
-        for (string, c) in commands:
-            if isinstance(c, CmdMetaData):
-                i += 1
-                c.uid = str(uid)
-                c.total = l
-                c.sequence = i
-                res.append({'command': c.payload_string,
-                            'valid': await self.command_execute(c),
-                            'uid': c.uid})
-            elif callable(c):
-                if string == 'FILE_UPLINK':
-                    asyncio.create_task(c)
-                else:
-                    r = await c()
-                    print(r)
-                    r = {**r, **{'command': string}}
-                    print(r)
-                    res.append(r)
-        #log.info(f"Execute {path}: Done.")
+            cmd_struct = CmdMetaData(i)
+            cmd_struct.total = p
+            cmd_struct.uid = uid
+            a = await self.execute(i, cmd_struct)
+            sequence += 1
+            cmd_struct.sequence = sequence
+            res.append(a)
         return res
 
     def clean(self, lines):
@@ -228,6 +226,7 @@ class CommandLoader():
         commands = filter(lambda a: (not is_comment(a)), res)
         return commands
 
+    @with_loud_coroutine_exception
     async def cl_validate(self, path):
         log.info(f"Commencing CL Validate")
         result = []
@@ -235,15 +234,9 @@ class CommandLoader():
             cmd_strings = f.readlines()
         cmd_list = self.clean(cmd_strings)
         for i in cmd_list:
-            if 'sleep' in i:
-                # Change to regex at some point
-                result.append({'command': i,
-                               'valid': True})
-            else:
-                res = await self.validate(i)
-                res = res['valid']
-                result.append({'command': i,
-                               'valid': res})
+            a = await self.validate(i)
+            m = {'command': i, **a}
+            result.append(m)
         return result
 
     def show(self, path):
@@ -293,35 +286,40 @@ class Command_Loader_Service(Service):
         self.command_loader = CommandLoader(self.request, self.publish)
         self.start()
 
+    @with_loud_coroutine_exception
     async def execute(self, topic, msg, reply):
-        log.info("Commencing Execute")
+        log.info("Execute")
         res = await self.command_loader.execute(msg)
         res['directive'] = topic
         res['args'] = msg
         #log.info(f"Completed Commands: {res}")
         await self.publish(reply, res)
 
+    @with_loud_coroutine_exception
     async def show(self, topic, msg, reply):
-        log.info("Commencing Show")
+        log.info("Show")
         res = self.command_loader.show(msg)
         res['directive'] = topic
         res['args'] = msg
         #log.info(f"Completed Commands: {res}")
         await self.publish(reply, res)
 
+    @with_loud_coroutine_exception
     async def validate(self, topic, msg, reply):
-        log.info("Commencing Validate")
+        log.info("Validate")
         res = await self.command_loader.validate(msg)
         res['directive'] = topic
         res['args'] = msg
         await self.publish(reply, res)
 
+    @with_loud_coroutine_exception
     async def uplink_complete(self, topic, msg, reply):
         msg.set_finish_time_gps()
         self.command_loader.update_tracker(msg)
         await self.publish("Bifrost.Messages.Info.CommandLoader.Uplink_Status", msg.subset_map())
         await self.publish('Uplink.CmdMetaData.Log', msg)
 
+    @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
         return
