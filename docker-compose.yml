@@ -42,7 +42,7 @@ services:
       - DOCKER_INFLUXDB_INIT_PASSWORD=rootroot
       - DOCKER_INFLUXDB_INIT_ORG=sunrise
       - DOCKER_INFLUXDB_INIT_BUCKET=bebop
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN="IfTvVc7ni-Xipn0GpB3g-oLd5g5lJQh3UarZlS5pRPzCtef4AAP3vdCRpe_QqxS1xBnb_jgEK6WmckBvk6i1ng=="
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN='YourKey'
     ports:
       - 8086:8086
     volumes:
