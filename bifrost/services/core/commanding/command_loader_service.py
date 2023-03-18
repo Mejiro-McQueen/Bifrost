@@ -1,4 +1,5 @@
 from bifrost.common.service import Service
+from bifrost.common.loud_exception import with_loud_exception, with_loud_coroutine_exception
 from pathlib import Path
 from ait.core import log
 import sunrise.packet_processors.scripts.sdlFts as sdlFts
@@ -7,7 +8,6 @@ import tqdm
 from colorama import Fore
 import traceback
 import asyncio
-
 
 class CommandLoader():
     def __init__(self, request, publish, default_cl_path='',
@@ -18,6 +18,7 @@ class CommandLoader():
         self.default_cl_path = default_cl_path
         self.default_uplink_path = default_uplink_path
 
+    @with_loud_coroutine_exception
     async def command_execute(self, cmd_struct: CmdMetaData, execute=True):
         args = cmd_struct.payload_string.split(" ")
         command = args.pop(0)
@@ -60,6 +61,7 @@ class CommandLoader():
         tracker = self.get_tracker(cmd_struct)
         tracker.close()
 
+    @with_loud_coroutine_exception
     async def upload_dir(self, path, uid):
         # SunRISE Special
         p = Path(path)
@@ -80,6 +82,7 @@ class CommandLoader():
             traceback.print_exc()
         return res
 
+    @with_loud_coroutine_exception
     async def validate(self, i):
         """Use Heuristics to perform validate"""
         res = {'valid': None}
@@ -120,9 +123,12 @@ class CommandLoader():
                 cleaned.append(i)
         return cleaned
 
+    @with_loud_coroutine_exception
     async def execute(self, directive):
         """ Use Heuristics to determine what kind of execution to use"""
-        res = {'result': None}
+        uid = CmdMetaData.get_uid()
+        res = {'result': None,
+               'uid': str(uid)}
         res = self.timestamp(res, 'start')
         path = Path(directive)
         if path.is_dir():
@@ -132,16 +138,16 @@ class CommandLoader():
                 uid = CmdMetaData.get_uid()
                 upload = asyncio.create_task(self.upload_dir(directive, uid))
                 res['result'] = 'Upload Task Started'
-                res['uid'] = str(uid)
                 res['valid'] = True
             else:
                 res['result'] = False
                 res['valid'] = False
         elif path.suffix == ".cl":
-            # command loader
+            # command loader script
             log.debug("Execute CL script")
-            res['result'] = await self.execute_cl_script(path)
-            res['valid'] = all(i['valid'] for i in res['result'])
+            asyncio.create_task(self.execute_cl_script(path, uid))
+            res['result'] = 'Accepted'
+            res['valid'] = 'Maybe'
         #elif path.suffix == ".py":
             # TODO Do we need args?
             #log.info(f"Execute python script")
@@ -149,6 +155,7 @@ class CommandLoader():
         elif "/" in str(path):
             # Path like, but not on FS
             res['valid'] = False
+            res['result'] = "Link not found"
         else:
             # raw command
             log.debug("Execute raw command")
@@ -159,7 +166,8 @@ class CommandLoader():
         res = self.timestamp(res, 'finish')
         return res
 
-    async def execute_cl_script(self, path):
+    @with_loud_coroutine_exception
+    async def execute_cl_script(self, path, uid):
         log.info(f"Executing CL Script {path}")
         res = []
         commands = []
@@ -169,7 +177,8 @@ class CommandLoader():
         if not cmd_list:
             msg = f"{path=} is empty!"
             log.info(msg)
-            return {'valid': False}
+            return [{'command': '',
+                     'valid': False}]
         for i in cmd_list:
             p = Path(i)
             if 'sleep' in i:
@@ -186,7 +195,6 @@ class CommandLoader():
             elif p.is_dir():
                 if list(p.glob("*uplink_metadata.json")):
                     log.info("SUNRISE: Upload Directory!")
-                    uid = CmdMetaData.get_uid()
                     result = 'Upload Task Started'
                     valid = True
                     commands.append(('FILE_UPLINK',
@@ -220,8 +228,12 @@ class CommandLoader():
                     asyncio.create_task(c)
                 else:
                     r = await c()
-                    print(r)
-                    r = {**r, **{'command': string}}
+                    if not r:
+                        r = {'command': string,
+                             'valid': False,
+                             'uid': uid}
+                    else:
+                        r = {**r, **{'command': string}}
                     print(r)
                     res.append(r)
         #log.info(f"Execute {path}: Done.")
@@ -234,6 +246,7 @@ class CommandLoader():
         commands = filter(lambda a: (not is_comment(a)), res)
         return commands
 
+    @with_loud_coroutine_exception
     async def cl_validate(self, path):
         log.info(f"Commencing CL Validate")
         result = []
@@ -299,6 +312,7 @@ class Command_Loader_Service(Service):
         self.command_loader = CommandLoader(self.request, self.publish)
         self.start()
 
+    @with_loud_coroutine_exception
     async def execute(self, topic, msg, reply):
         log.info("Execute")
         res = await self.command_loader.execute(msg)
@@ -307,6 +321,7 @@ class Command_Loader_Service(Service):
         #log.info(f"Completed Commands: {res}")
         await self.publish(reply, res)
 
+    @with_loud_coroutine_exception
     async def show(self, topic, msg, reply):
         log.info("Show")
         res = self.command_loader.show(msg)
@@ -315,6 +330,7 @@ class Command_Loader_Service(Service):
         #log.info(f"Completed Commands: {res}")
         await self.publish(reply, res)
 
+    @with_loud_coroutine_exception
     async def validate(self, topic, msg, reply):
         log.info("Validate")
         res = await self.command_loader.validate(msg)
@@ -322,12 +338,14 @@ class Command_Loader_Service(Service):
         res['args'] = msg
         await self.publish(reply, res)
 
+    @with_loud_coroutine_exception
     async def uplink_complete(self, topic, msg, reply):
         msg.set_finish_time_gps()
         self.command_loader.update_tracker(msg)
         await self.publish("Bifrost.Messages.Info.CommandLoader.Uplink_Status", msg.subset_map())
         await self.publish('Uplink.CmdMetaData.Log', msg)
 
+    @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
         return

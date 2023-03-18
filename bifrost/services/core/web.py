@@ -117,7 +117,9 @@ class Web_Server(Service):
                 topic = req['topic']
                 payload = req['message']
                 data = await self.request(topic, payload)
-                await websocket.send_json(data)
+                m = {'topic': 'Command_Loader.Receipt',
+                     'message': data}
+                await websocket.send_json(m)
         except WebSocketDisconnect:
             pass
         
