@@ -114,10 +114,9 @@ class Web_Server(Service):
             await websocket.accept()
             while True:
                 req = await websocket.receive_json()
-                cl_request = req['directive']
-                payload = " ".join(req['payload'])
-                directive = f'{cl_request}'
-                data = await self.request(directive, payload)
+                topic = req['topic']
+                payload = req['message']
+                data = await self.request(topic, payload)
                 await websocket.send_json(data)
         except WebSocketDisconnect:
             pass
@@ -136,7 +135,7 @@ class Web_Server(Service):
                 sub = await self.nc.subscribe('Bifrost.Messages.>')
                 async for msg in sub.messages:
                     d = pickle.loads(msg.data)
-                    m = {'subject': msg.subject,
+                    m = {'topic': msg.subject,
                          'message': d}
                     await websocket.send_json(m)
         except WebSocketDisconnect:
@@ -152,7 +151,7 @@ class Web_Server(Service):
                 sub = await self.nc.subscribe('Bifrost.Monitors.>')
                 async for msg in sub.messages:
                     d = pickle.loads(msg.data)
-                    m = {'subject': msg.subject,
+                    m = {'topic': msg.subject,
                          'message': d}
                     await websocket.send_json(m)
         except WebSocketDisconnect:
@@ -176,13 +175,16 @@ class Web_Server(Service):
 
     @with_loud_coroutine_exception
     async def ws_service_directive(self, websocket):
-        await websocket.accept()
-        m = await websocket.receive_json()
-        for i in m:
-            directive = i['directive']
-            body = i['body']
-            await self.publish(directive, body)
-            await websocket.send_json(f"OK, {directive}")
+        try:
+            await websocket.accept()
+            m = await websocket.receive_json()
+            for i in m:
+                directive = i['topic']
+                body = i['message']
+                await self.publish(directive, body)
+                await websocket.send_json(f"OK, {directive}")
+        except WebSocketDisconnect:
+            pass
 
     @with_loud_coroutine_exception
     async def ws_downlink_updates(self, websocket):
@@ -192,7 +194,7 @@ class Web_Server(Service):
                 sub = await self.nc.subscribe(self.downlink_update_pattern)
                 async for msg in sub.messages:
                     d = pickle.loads(msg.data)
-                    m = {'subject': msg.subject,
+                    m = {'topic': msg.subject,
                          'message': d}
                     await websocket.send_json(m)
         except WebSocketDisconnect:
