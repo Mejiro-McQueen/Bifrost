@@ -34,7 +34,7 @@ def command_type_hueristic(i):
         res = Command_Type.SLEEP
     else: #  We can probably just ask the dictionaries if the mnemonic is in the able
         res = Command_Type.COMMAND
-    log.info(res)
+    log.debug(res)
     return res
 
 
@@ -59,7 +59,7 @@ class CommandLoader():
             valid, obj = response
             if valid and execute:
                 cmd_struct.payload_bytes = obj.encode()
-                self.get_tracker(cmd_struct)
+                self.update_tracker(cmd_struct)
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
@@ -91,12 +91,13 @@ class CommandLoader():
         tracker.close()
 
     @with_loud_coroutine_exception
-    async def upload_dir(self, path, uid):
+    async def upload_dir(self, path):
         # SunRISE Special
         p = Path(path)
         if not list(p.glob("*uplink_metadata.json")):
             return {'valid': False}
         log.info(f"Uploading {p}")
+        uid = CmdMetaData.get_uid() # Huge sequences, so get a new uid
         try:
             metadata = sdlFts.send_uplink_products_from_directory(p, uid)
             for cmd_struct in metadata:
@@ -148,9 +149,13 @@ class CommandLoader():
         return cleaned
 
     @with_loud_coroutine_exception
-    async def execute(self, directive):
+    async def execute(self, directive, cmd_struct=None):
         """ Use Heuristics to determine what kind of execution to use"""
-        uid = CmdMetaData.get_uid()
+        if cmd_struct:
+            uid = cmd_struct.uid
+        else:
+            uid = CmdMetaData.get_uid()
+            
         res = {'result': None,
                'uid': str(uid)}
         res = self.timestamp(res, 'start')
@@ -160,7 +165,7 @@ class CommandLoader():
         command_type = command_type_hueristic(directive)
             # uplink directory
         if command_type is Command_Type.FILE_UPLINK:
-            upload = asyncio.create_task(self.upload_dir(directive, uid))
+            upload = asyncio.create_task(self.upload_dir(directive))
             res['result'] = 'Upload Task Started'
             res['valid'] = True
         elif command_type is Command_Type.CL:
@@ -172,7 +177,8 @@ class CommandLoader():
         elif command_type is Command_Type.COMMAND:
             # raw command
             log.debug("Execute raw command")
-            cmd_struct = CmdMetaData(directive)
+            if not cmd_struct:
+                cmd_struct = CmdMetaData(directive)
             res['result'] = {'uid': str(cmd_struct.uid),
                              'valid': await self.command_execute(cmd_struct)}
         elif Command_Type is Command_Type.INVALID:
@@ -180,7 +186,7 @@ class CommandLoader():
             res['result'] = "Invalid Command"
         elif command_type is Command_Type.SLEEP:
             _, t = directive.split(' ')
-            asyncio.sleep(t)
+            await asyncio.sleep(float(t))
         elif command_type is Command_Type.ECHO:
             log.info(directive)
             res['valid'] = True
@@ -200,9 +206,16 @@ class CommandLoader():
             return [{'command': '',
                      'valid': False}]
         res = []
+        sequence = 0
         for i in cmd_list:
-            a = await self.execute(i)
+            cmd_struct = CmdMetaData(i)
+            cmd_struct.total = len(cmd_list)
+            cmd_struct.uid = uid
+            a = await self.execute(i, cmd_struct)
+            sequence += 1
+            cmd_struct.sequence = sequence
             res.append(a)
+            #print(Fore.CYAN, cmd_struct, Fore.RESET)
         return res
 
     def clean(self, lines):
@@ -219,10 +232,9 @@ class CommandLoader():
         with open(path, 'r') as f:
             cmd_strings = f.readlines()
         cmd_list = self.clean(cmd_strings)
-        res = []
         for i in cmd_list:
             a = await self.validate(i)
-            m = {'command':i, **a}
+            m = {'command': i, **a}
             result.append(m)
         return result
 
