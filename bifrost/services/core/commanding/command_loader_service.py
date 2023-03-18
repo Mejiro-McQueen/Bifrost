@@ -54,11 +54,11 @@ class CommandLoader():
         cleaned_args = [str(i) for i in self.clean_args(args)]
         command = ' '.join([command, *cleaned_args])
         try:
-            response = await self.request('Bifrost.Services.Command.Object',
+            response = await self.request('Bifrost.Services.Dictionary.Command.Raw',
                                           cmd_struct.payload_string)
             valid, obj = response
             if valid and execute:
-                cmd_struct.payload_bytes = obj.encode()
+               # cmd_struct.payload_bytes = obj.encode()
                 #self.update_tracker(cmd_struct)
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
@@ -125,7 +125,8 @@ class CommandLoader():
             res['valid'] = all(i['valid'] for i in res['result'])
         elif command_type is Command_Type.COMMAND:
             cmd_struct = CmdMetaData(i)
-            res['valid'] = await self.command_execute(cmd_struct, execute=False)
+            res['valid'], _ = await self.request('Bifrost.Services.Dictionary.Command.Validate',
+                                                 cmd_struct.payload_string)
         elif command_type is Command_Type.ECHO:
             res['valid'] = True
         elif command_type is Command_Type.SLEEP:
@@ -216,7 +217,6 @@ class CommandLoader():
             sequence += 1
             cmd_struct.sequence = sequence
             res.append(a)
-            #print(Fore.CYAN, cmd_struct, Fore.RESET)
         return res
 
     def clean(self, lines):
