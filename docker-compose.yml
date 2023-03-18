@@ -1,0 +1,59 @@
+version: "3.3"
+services:
+  bifrost:
+    image: bifrost:dev
+    build: .
+    container_name: bifrost
+    ports:
+      - 80:8000
+    extra_hosts:
+      - "sdlvm:10.10.10.5"
+    volumes:
+     - /sunrise:/sunrise:z
+    env_file: docker.env
+    networks: ["nats"]
+    depends_on:
+      nats:
+        condition: service_healthy
+      influx: 
+        condition: service_healthy
+    #entrypoint: ["bash"]
+
+  nats:
+    image: nats:alpine
+    ports:
+      - "8222:8222"
+    command: '--server_name nats-bifrost --jetstream  --http_port 8222'
+    networks: ["nats"]
+    healthcheck:
+      test: "wget --server-response localhost:8222/healthz 2>&1 | grep  '200 OK' || exit 1"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    #entrypoint: ["ash"]
+
+  influx:
+    # Be sure to login and create an all access API token, and paste it into the docker.env file
+    image: influxdb:latest
+    networks: ["nats"]
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=rootroot
+      - DOCKER_INFLUXDB_INIT_PASSWORD=rootroot
+      - DOCKER_INFLUXDB_INIT_ORG=sunrise
+      - DOCKER_INFLUXDB_INIT_BUCKET=bebop
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN="IfTvVc7ni-Xipn0GpB3g-oLd5g5lJQh3UarZlS5pRPzCtef4AAP3vdCRpe_QqxS1xBnb_jgEK6WmckBvk6i1ng=="
+    ports:
+      - 8086:8086
+    volumes:
+       - /sunrise/influx/data:/var/lib/influxdb2:z
+       - /sunrise/influx/config:/etc/influxdb2
+    healthcheck:
+      test: "curl -f influx:8086/ping"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  nats:
+    name: nats
