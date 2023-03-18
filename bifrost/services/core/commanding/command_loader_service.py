@@ -8,6 +8,35 @@ import tqdm
 from colorama import Fore
 import traceback
 import asyncio
+from enum import Enum, auto
+import json
+
+class Command_Type(Enum):
+    FILE_UPLINK = auto()
+    COMMAND = auto()
+    CL = auto()
+    INVALID = auto()
+    SLEEP = auto()
+    ECHO = auto()
+
+
+def command_type_hueristic(i):
+    path = Path(i)
+    if path.is_dir() and list(path.glob("*uplink_metadata.json")):
+        res = Command_Type.FILE_UPLINK
+    elif path.is_file() and path.suffix in ['.cl']:
+        res = Command_Type.CL
+    elif "/" in str(path):
+        res = Command_Type.INVALID
+    elif 'echo' in i:
+        res = Command_Type.ECHO
+    elif 'sleep' in i:
+        res = Command_Type.SLEEP
+    else: #  We can probably just ask the dictionaries if the mnemonic is in the able
+        res = Command_Type.COMMAND
+    log.info(res)
+    return res
+
 
 class CommandLoader():
     def __init__(self, request, publish, default_cl_path='',
@@ -85,27 +114,22 @@ class CommandLoader():
     @with_loud_coroutine_exception
     async def validate(self, i):
         """Use Heuristics to perform validate"""
-        res = {'valid': None}
+        command_type = command_type_hueristic(i)
+        res = {'valid': False}
         res = self.timestamp(res, 'start')
-        path = Path(i)
-        if path.is_dir():
-            # SunRISE Special
-            if list(path.glob("*uplink_metadata.json")):
-                res['valid'] = True
-            else:
-                res['valid'] = False
-        elif path.is_file():
-            if path.suffix == ".cl":
-                res['result'] = await self.cl_validate(path)
-                res['valid'] = all(i['valid'] for i in res['result'])
-            else:
-                res['valid'] = False
-        elif "/" in str(path):
-            # Path like, but not on FS
-            res['valid'] = False
-        else:
+        if command_type is Command_Type.FILE_UPLINK:
+            res['valid'] = True
+        elif command_type is Command_Type.CL:
+            res['result'] = await self.cl_validate(Path(i))
+            res['valid'] = all(i['valid'] for i in res['result'])
+        elif command_type is Command_Type.COMMAND:
             cmd_struct = CmdMetaData(i)
             res['valid'] = await self.command_execute(cmd_struct, execute=False)
+        elif command_type is Command_Type.ECHO:
+            res['valid'] = True
+        elif command_type is Command_Type.SLEEP:
+            _, t = i.split(' ')
+            res['valid'] = t.isnumeric()
         res = self.timestamp(res, 'finish')
         return res
 
@@ -130,47 +154,43 @@ class CommandLoader():
         res = {'result': None,
                'uid': str(uid)}
         res = self.timestamp(res, 'start')
-        path = Path(directive)
-        if path.is_dir():
+        res['result'] = False
+        res['valid'] = False
+        
+        command_type = command_type_hueristic(directive)
             # uplink directory
-            if list(path.glob("*uplink_metadata.json")):
-                log.debug("SUNRISE: Upload Directory")
-                uid = CmdMetaData.get_uid()
-                upload = asyncio.create_task(self.upload_dir(directive, uid))
-                res['result'] = 'Upload Task Started'
-                res['valid'] = True
-            else:
-                res['result'] = False
-                res['valid'] = False
-        elif path.suffix == ".cl":
+        if command_type is Command_Type.FILE_UPLINK:
+            upload = asyncio.create_task(self.upload_dir(directive, uid))
+            res['result'] = 'Upload Task Started'
+            res['valid'] = True
+        elif command_type is Command_Type.CL:
             # command loader script
             log.debug("Execute CL script")
-            asyncio.create_task(self.execute_cl_script(path, uid))
+            asyncio.create_task(self.execute_cl_script(Path(directive), uid))
             res['result'] = 'Accepted'
             res['valid'] = 'Maybe'
-        #elif path.suffix == ".py":
-            # TODO Do we need args?
-            #log.info(f"Execute python script")
-        #    result = self.execute_python(path)
-        elif "/" in str(path):
-            # Path like, but not on FS
-            res['valid'] = False
-            res['result'] = "Link not found"
-        else:
+        elif command_type is Command_Type.COMMAND:
             # raw command
             log.debug("Execute raw command")
             cmd_struct = CmdMetaData(directive)
             res['result'] = {'uid': str(cmd_struct.uid),
-                             'valid': await self.command_execute(cmd_struct),
-                             }
+                             'valid': await self.command_execute(cmd_struct)}
+        elif Command_Type is Command_Type.INVALID:
+            res['valid'] = False
+            res['result'] = "Invalid Command"
+        elif command_type is Command_Type.SLEEP:
+            _, t = directive.split(' ')
+            asyncio.sleep(t)
+        elif command_type is Command_Type.ECHO:
+            log.info(directive)
+            res['valid'] = True
+            res['result'] = directive
         res = self.timestamp(res, 'finish')
         return res
 
     @with_loud_coroutine_exception
     async def execute_cl_script(self, path, uid):
         log.info(f"Executing CL Script {path}")
-        res = []
-        commands = []
         with open(path, 'r') as f:
             cmd_strings = f.readlines()
         cmd_list = list(self.clean(cmd_strings))
@@ -179,64 +199,10 @@ class CommandLoader():
             log.info(msg)
             return [{'command': '',
                      'valid': False}]
+        res = []
         for i in cmd_list:
-            p = Path(i)
-            if 'sleep' in i:
-                # Change to regex at some point
-                _, t = i.split(' ')
-                res.append({'command': i,
-                            'valid': True})
-                commands.append((i, lambda: asyncio.sleep(float(t))))
-            elif 'echo' in i:
-                _, msg = i.split(' ')
-                res.append({'command': i,
-                            'valid': True})
-                commands.append((i, lambda: log.info(msg)))
-            elif p.is_dir():
-                if list(p.glob("*uplink_metadata.json")):
-                    log.info("SUNRISE: Upload Directory!")
-                    result = 'Upload Task Started'
-                    valid = True
-                    commands.append(('FILE_UPLINK',
-                                     lambda: self.upload_dir(p, uid)))
-                else:
-                    result = 'Invalid Uplink'
-                    valid = False
-                m = {'command': p,
-                     'valid': valid,
-                     'result': result}
-                if valid:
-                    m['uid'] = str(uid)
-                res.append(m)
-            else:
-                commands.append((i, CmdMetaData(i)))
-
-        uid = CmdMetaData.get_uid()
-        l = len([i for i in commands if not callable(i[1])])
-        i = 0
-        for (string, c) in commands:
-            if isinstance(c, CmdMetaData):
-                i += 1
-                c.uid = str(uid)
-                c.total = l
-                c.sequence = i
-                res.append({'command': c.payload_string,
-                            'valid': await self.command_execute(c),
-                            'uid': c.uid})
-            elif callable(c):
-                if string == 'FILE_UPLINK':
-                    asyncio.create_task(c)
-                else:
-                    r = await c()
-                    if not r:
-                        r = {'command': string,
-                             'valid': False,
-                             'uid': uid}
-                    else:
-                        r = {**r, **{'command': string}}
-                    print(r)
-                    res.append(r)
-        #log.info(f"Execute {path}: Done.")
+            a = await self.execute(i)
+            res.append(a)
         return res
 
     def clean(self, lines):
@@ -253,16 +219,11 @@ class CommandLoader():
         with open(path, 'r') as f:
             cmd_strings = f.readlines()
         cmd_list = self.clean(cmd_strings)
+        res = []
         for i in cmd_list:
-            if 'sleep' in i:
-                # Change to regex at some point
-                result.append({'command': i,
-                               'valid': True})
-            else:
-                res = await self.validate(i)
-                res = res['valid']
-                result.append({'command': i,
-                               'valid': res})
+            a = await self.validate(i)
+            m = {'command':i, **a}
+            result.append(m)
         return result
 
     def show(self, path):
