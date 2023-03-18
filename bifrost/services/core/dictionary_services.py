@@ -15,6 +15,7 @@ class Command_Dictionary_Service(Service):
         return
 
     async def generate_command_object(self, topic, message, reply):
+        # Don't actually use this, not langauge agnostic, we'll get rid of it someday.
         try:
             cmd_obj = self.cmd_dict.create(message)
             res = (cmd_obj.validate(), cmd_obj)
@@ -27,13 +28,14 @@ class Command_Dictionary_Service(Service):
         try:
             cmd_obj = self.cmd_dict.create(message)
             cmd_bytes = cmd_obj.encode()
-            res = (cmd_obj.validate(), cmd_bytes)
+            res = (cmd_obj.validate(), str(cmd_bytes))
         except Exception as e:
             log.error(e)
             res = (False, None)
         await self.publish(reply, res)
 
     async def get_dictionary(self, topic, message, reply):
+        # Don't actually use this, not langauge agnostic, we'll get rid of it someday.
         await self.publish(reply, self.cmd_dict)
 
     async def get_dictionary_json(self, topic, message, reply):
