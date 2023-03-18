@@ -59,7 +59,7 @@ class CommandLoader():
             valid, obj = response
             if valid and execute:
                 cmd_struct.payload_bytes = obj.encode()
-                self.update_tracker(cmd_struct)
+                #self.update_tracker(cmd_struct)
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
@@ -207,9 +207,10 @@ class CommandLoader():
                      'valid': False}]
         res = []
         sequence = 0
+        p = len([i for i in cmd_list if command_type_hueristic(i) is Command_Type.COMMAND])
         for i in cmd_list:
             cmd_struct = CmdMetaData(i)
-            cmd_struct.total = len(cmd_list)
+            cmd_struct.total = p
             cmd_struct.uid = uid
             a = await self.execute(i, cmd_struct)
             sequence += 1
