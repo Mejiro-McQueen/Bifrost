@@ -121,6 +121,9 @@ class Web_Server(Service):
                 await websocket.send_json(data)
         except WebSocketDisconnect:
             pass
+        except ConnectionClosed:
+            log.error(f"Connection closed unexpectedly.")
+            pass
         
     @with_loud_coroutine_exception
     async def config_request(self, request):
@@ -176,13 +179,16 @@ class Web_Server(Service):
 
     @with_loud_coroutine_exception
     async def ws_service_directive(self, websocket):
-        await websocket.accept()
-        m = await websocket.receive_json()
-        for i in m:
-            directive = i['directive']
-            body = i['body']
-            await self.publish(directive, body)
-            await websocket.send_json(f"OK, {directive}")
+        try:
+            await websocket.accept()
+            m = await websocket.receive_json()
+            for i in m:
+                directive = i['directive']
+                body = i['body']
+                await self.publish(directive, body)
+                await websocket.send_json(f"OK, {directive}")
+        except WebSocketDisconnect:
+            pass
 
     @with_loud_coroutine_exception
     async def ws_downlink_updates(self, websocket):

@@ -33,6 +33,7 @@ class CommandLoader():
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
+            traceback.print_exc()
             valid = False
         return valid
 
@@ -80,7 +81,7 @@ class CommandLoader():
         return res
 
     async def validate(self, i):
-        """UseHeuristics to perform validate"""
+        """Use Heuristics to perform validate"""
         res = {'valid': None}
         res = self.timestamp(res, 'start')
         path = Path(i)
@@ -96,10 +97,12 @@ class CommandLoader():
                 res['valid'] = all(i['valid'] for i in res['result'])
             else:
                 res['valid'] = False
+        elif "/" in str(path):
+            # Path like, but not on FS
+            res['valid'] = False
         else:
             cmd_struct = CmdMetaData(i)
             res['valid'] = await self.command_execute(cmd_struct, execute=False)
-        print(res)
         res = self.timestamp(res, 'finish')
         return res
 
@@ -143,6 +146,9 @@ class CommandLoader():
             # TODO Do we need args?
             #log.info(f"Execute python script")
         #    result = self.execute_python(path)
+        elif "/" in str(path):
+            # Path like, but not on FS
+            res['valid'] = False
         else:
             # raw command
             log.debug("Execute raw command")
@@ -294,7 +300,7 @@ class Command_Loader_Service(Service):
         self.start()
 
     async def execute(self, topic, msg, reply):
-        log.info("Commencing Execute")
+        log.info("Execute")
         res = await self.command_loader.execute(msg)
         res['directive'] = topic
         res['args'] = msg
@@ -302,7 +308,7 @@ class Command_Loader_Service(Service):
         await self.publish(reply, res)
 
     async def show(self, topic, msg, reply):
-        log.info("Commencing Show")
+        log.info("Show")
         res = self.command_loader.show(msg)
         res['directive'] = topic
         res['args'] = msg
@@ -310,7 +316,7 @@ class Command_Loader_Service(Service):
         await self.publish(reply, res)
 
     async def validate(self, topic, msg, reply):
-        log.info("Commencing Validate")
+        log.info("Validate")
         res = await self.command_loader.validate(msg)
         res['directive'] = topic
         res['args'] = msg
