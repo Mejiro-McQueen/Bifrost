@@ -9,7 +9,8 @@ from colorama import Fore
 import traceback
 import asyncio
 from enum import Enum, auto
-import json
+import ast
+
 
 class Command_Type(Enum):
     FILE_UPLINK = auto()
@@ -32,13 +33,14 @@ def command_type_hueristic(i):
         res = Command_Type.ECHO
     elif 'sleep' in i:
         res = Command_Type.SLEEP
-    else: #  We can probably just ask the dictionaries if the mnemonic is in the able
+    else:  #  We can probably just ask the dictionaries if the mnemonic is in the dict
         res = Command_Type.COMMAND
     log.debug(res)
     return res
 
 
 class CommandLoader():
+    @with_loud_exception
     def __init__(self, request, publish, default_cl_path='',
                  default_uplink_path=''):
         self.request = request
