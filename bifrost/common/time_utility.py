@@ -21,6 +21,10 @@ def packet_time_stamp_from_gps_s_ns(tagged_packet):
     return date_time_from_gps_s_ns(gps_t_s, gps_t_ns)
 
 
+def time_processed(tagged_packet):
+    return gps_timestamp_now()
+
+
 utc_timestamp_now = (lambda: datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S"))
 
 gps_timestamp_now = (lambda: Time(Time.now(), format='gps', scale='tai', precision=9))

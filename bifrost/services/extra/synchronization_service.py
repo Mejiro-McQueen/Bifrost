@@ -1,4 +1,5 @@
 from bifrost.common.service import Service
+from bifrost.common.loud_exception import with_loud_coroutine_exception, with_loud_exception
 from ait.core import log
 from dataclasses import dataclass, field
 from colorama import Fore
@@ -160,3 +161,34 @@ class Desynchronization_Service(Service):
             #self.rear_fragment = None
             #self.synchronized = False
             pass
+
+
+class ASM_Desynchronization_Service(Service):
+    @with_loud_exception
+    def __init__(self):
+        super().__init__()
+        self.start()
+
+    @with_loud_coroutine_exception
+    async def reconfigure(self, topic, message, reply):
+        await super().reconfigure(topic, message, reply)
+        self.synchronized = False
+        return
+
+    @with_loud_coroutine_exception
+    async def desynchronize(self, topic, data, reply):
+        #print(self.synchronized, data)
+        data = data.split(b'\x1a\xcf\xfc\x1d')
+
+        if not data and self.synchronized:
+            log.error(f"{Fore.RED}Synchronization was lost?{Fore.RESET}")
+            self.synchronized = False
+            return
+
+        if not self.synchronized:
+            log.info(f"{Fore.GREEN}Synchronized{Fore.RESET}")
+            self.synchronized = True
+
+        if self.synchronized:
+            for i in data[1:]:
+                await self.stream('Telemetry.AOS.Raw', i)
