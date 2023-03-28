@@ -1,5 +1,6 @@
 from enum import Enum, auto
 from bitstring import BitArray
+from colorama import Fore
 
 
 class Packet_State(Enum):
@@ -43,8 +44,14 @@ class CCSDS_Packet():
         self.encoded_packet = bytes()
         self.error = None
 
+    def __repr__(self):
+        s = str({'primary_header': self.primary_header,
+                 'secondary_header': self.secondary_header,
+                 'encoded_packet': self.encoded_packet.hex()})
+        return s
+
     @staticmethod
-    def decode(packet_bytes):
+    def decode(packet_bytes, secondary_header_length=6):
         """Generate a packet"""
         data_length = int.from_bytes(packet_bytes[4:6], 'big')
         if not data_length: # regular check is apid 111111....
@@ -67,13 +74,21 @@ class CCSDS_Packet():
         p = CCSDS_Packet(**decoded_header)
         p.encoded_packet = actual_packet
         #rest = packet_bytes[6+data_length+1:]
+            
         if p.is_complete():
+            # This looks good, let's move it out, add the new map fields, and rewrite get_missing 
+            if decoded_header[HeaderKeys.SEC_HDR_FLAG.name] and secondary_header_length:
+                p.secondary_header = data[:secondary_header_length]
+                p.data = data[secondary_header_length:]
             return (Packet_State.COMPLETE, p)
         else:
             return (Packet_State.SPILLOVER, p)
 
     def is_complete(self):
         return not bool(self.get_missing())
+
+    def is_idle(self):
+        return self.primary_header[HeaderKeys.APPLICATION_PROCESS_IDENTIFIER.name] == 0b11111111111
 
     def get_missing(self):
         m = (g := self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name]+1) - (q := len(self.data))

@@ -8,7 +8,7 @@ class AOS_to_CCSDS_Depacketization():
     def __init__(self):
         self.bytes_from_previous_frames = bytes()
         
-    def __call__(self, data):
+    def depacketize(self, data):
         log.debug("NEW")
 
         def attempt_packet(data):
