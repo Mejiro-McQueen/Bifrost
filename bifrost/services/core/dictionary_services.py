@@ -2,6 +2,7 @@ from bifrost.common.service import Service
 from ait.core import cmd
 from colorama import Fore
 from ait.core import log
+import traceback
 
 class Command_Dictionary_Service(Service):
     def __init__(self):
@@ -31,6 +32,7 @@ class Command_Dictionary_Service(Service):
             res = (cmd_obj.validate(), str(cmd_bytes))
         except Exception as e:
             log.error(e)
+            log.error(traceback.print_exc())
             res = (False, None)
         await self.publish(reply, res)
 
