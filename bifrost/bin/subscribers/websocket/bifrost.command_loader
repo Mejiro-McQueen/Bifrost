@@ -7,6 +7,7 @@ import json
 async def telemetry_view():
     async with websockets.connect("ws://localhost:8000/command_loader") as websocket:
         msg = ("CL.Execute", "MISSION_MANAGER_SWITCH_MODE NO_OVERWRITE_IMMEDIATE 0 0 8 Downlink")
+        msg = ("CL.Execute", "INNOFLIGHT_SCR106_INIT_AND_POWER_TRANSMITTER NO_OVERWRITE_IMMEDIATE 0 2 36000 60 /mnt/fsw/configuration/innoflightScr106/txHighRateConfig.xml'")
         # msg = ('CL.Validate", "MISSION_MANAGER_SWITCH_MODE NO_OVERWRITE_IMMEDIATE 0 0 8 Downlink 0')
         # msg = ('CL.Validate", "/sunrise/data/products/10004/uplink/ben.cl')
         # msg = ('CL.Execute", "/sunrise/data/products/10004/uplink/ben.cl')
