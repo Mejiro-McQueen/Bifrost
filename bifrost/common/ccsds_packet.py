@@ -86,16 +86,28 @@ class CCSDS_Packet():
     def __str__(self):
         return str(self.__class__) + ": " + str(self.__dict__)
 
-    def encode(self):
-        if self.encoded_packet:
-            return self.encoded_packet
+    @staticmethod
+    def encode(data,
+               PACKET_VERSION_NUMBER=0, PACKET_TYPE=1,
+               SEC_HDR_FLAG=0, APPLICATION_PROCESS_IDENTIFIER=0,
+               SEQUENCE_FLAGS=0, PACKET_SEQUENCE_OR_NAME=0):
+        
+        packet_version_number = BitArray(bin=format(0, '03b')) #  Version 1 CCSDS Packet
+        packet_type = BitArray(bin=format(1, '01b'))  # Telecommand; We don't generate telemetry or reports.
+        secondary_header_flag = BitArray(bin=format(0, '01b')) # No Secondary header for now
+        apid = BitArray(bin=format(0, '011b'))
+        sequence_flags = BitArray(bin='11')
+        if isinstance(PACKET_SEQUENCE_OR_NAME, str):
+            packet_sequence_count = BitArray(bytes=PACKET_SEQUENCE_OR_NAME.encode('ASCII'))
+        else:
+            packet_sequence_count = BitArray(bin=format(PACKET_SEQUENCE_OR_NAME, '014b'))
 
-        new = BitArray()
-        for (k, v) in self.primary_header.items():
-            size = k.value.start - (k.value.stop - 1)
-            padded_segment = format(v, f'0{size}b')
-            segment = BitArray(bin=padded_segment)
-            new.append(segment)
-        new.append(self.data)
-        self.encoded_packet = new.bytes
-        return self.encoded_packet
+        packet_length = BitArray(bin=format(len(data)-1, '016b'))
+        data = BitArray(data)
+            
+        packet = sum([packet_version_number, packet_type, secondary_header_flag,
+                      apid, sequence_flags, packet_sequence_count, packet_length, data])
+
+        return packet.bytes
+
+        # TODO Handle packet segmentation

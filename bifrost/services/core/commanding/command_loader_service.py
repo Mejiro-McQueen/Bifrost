@@ -58,10 +58,11 @@ class CommandLoader():
         try:
             response = await self.request('Bifrost.Services.Dictionary.Command.Raw',
                                           cmd_struct.payload_string)
-            valid, obj = response
+            valid, data = response
             if valid and execute:
                # cmd_struct.payload_bytes = obj.encode()
                 #self.update_tracker(cmd_struct)
+                cmd_struct.payload_bytes = bytes(data, 'ascii') 
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
