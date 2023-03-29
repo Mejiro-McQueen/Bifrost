@@ -6,7 +6,7 @@ import json
 
 async def telemetry_view():
     async with websockets.connect("ws://localhost:8000/command_loader") as websocket:
-        # msg = ('CL.Execute", "MISSION_MANAGER_SWITCH_MODE NO_OVERWRITE_IMMEDIATE 0 0 8 Downlink')
+        msg = ("CL.Execute", "MISSION_MANAGER_SWITCH_MODE NO_OVERWRITE_IMMEDIATE 0 0 8 Downlink")
         # msg = ('CL.Validate", "MISSION_MANAGER_SWITCH_MODE NO_OVERWRITE_IMMEDIATE 0 0 8 Downlink 0')
         # msg = ('CL.Validate", "/sunrise/data/products/10004/uplink/ben.cl')
         # msg = ('CL.Execute", "/sunrise/data/products/10004/uplink/ben.cl')
@@ -14,7 +14,7 @@ async def telemetry_view():
         #msg = ("CL.Execute", "INNOFLIGHT_SCR106_ENABLE_DATA_FLOW NO_OVERWRITE_IMMEDIATE 0 0 21600 0.1 0.0")
         #msg = ("CL.Validate", "INNOFLIGHT_SCR106_ENABLE_DATA_FLOW NO_OVERWRITE_IMMEDIATE 0 0 21600 0.1 0.0")
         #msg = ('CL.Execute', '/sunrise/SunRISE_uplink_sandbox/files/dtf21_march_2022/uplink_commands/alan_didion_slothstronaut.png_uplink_products/')
-        msg = ("CL.Execute", "/sunrise/test.cl")
+        #msg = ("CL.Execute", "/sunrise/test.cl")
 
         msg = json.dumps({'topic': msg[0],
                           'message': msg[1]})

@@ -115,8 +115,8 @@ class Web_Server(Service):
             while True:
                 req = await websocket.receive_json()
                 topic = req['topic']
-                payload = req['message']
-                data = await self.request(topic, payload)
+                message = req['message']
+                data = await self.request(topic, message)
                 m = {'topic': 'Command_Loader.Receipt',
                      'message': data}
                 await websocket.send_json(m)
