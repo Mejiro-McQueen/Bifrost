@@ -16,8 +16,12 @@ class Space_Packet_Service(Service):
 
     @with_loud_coroutine_exception
     async def depacketize(self, topic, data, reply):
-        self.publish(reply, CCSDS_Packet.decode(data))
-        pass
+        if reply:
+            # Service Reply
+            self.publish(reply, CCSDS_Packet.decode(data))
+        else:
+            # Pipeline Publish
+            pass
 
     @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
