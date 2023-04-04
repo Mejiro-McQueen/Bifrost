@@ -29,7 +29,7 @@ class Command_Dictionary_Service(Service):
         try:
             cmd_obj = self.cmd_dict.create(message)
             cmd_bytes = cmd_obj.encode()
-            res = (cmd_obj.validate(), str(cmd_bytes))
+            res = (cmd_obj.validate(), cmd_bytes)
         except Exception as e:
             log.error(e)
             log.error(traceback.print_exc())
