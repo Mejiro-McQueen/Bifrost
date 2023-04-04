@@ -60,9 +60,7 @@ class CommandLoader():
                                           cmd_struct.payload_string)
             valid, data = response
             if valid and execute:
-               # cmd_struct.payload_bytes = obj.encode()
-                #self.update_tracker(cmd_struct)
-                cmd_struct.payload_bytes = ast.literal_eval(data)
+                cmd_struct.payload_bytes = data
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
