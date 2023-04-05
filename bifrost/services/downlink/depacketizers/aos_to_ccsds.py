@@ -5,31 +5,32 @@ from bifrost.common.ccsds_packet import Packet_State, CCSDS_Packet
 
 
 class AOS_to_CCSDS_Depacketization():
-    def __init__(self):
+    def __init__(self, secondary_header_length=0):
         self.bytes_from_previous_frames = bytes()
+        self.secondary_header_length = secondary_header_length
         
     def depacketize(self, data):
         log.debug("NEW")
 
         def attempt_packet(data):
-            stat, p = CCSDS_Packet.decode(data)
-            if stat == Packet_State.COMPLETE:
+            stat, p = CCSDS_Packet.decode(data, self.secondary_header_length)
+            if stat is Packet_State.COMPLETE:
                 log.debug(f"{Fore.GREEN} Got a packet! {Fore.RESET}")
                 accumulated_packets.append(p)
                 self.bytes_from_previous_frames = bytes()
                 return p.get_next_index()
 
-            elif stat == Packet_State.SPILLOVER:
+            elif stat is Packet_State.SPILLOVER:
                 log.debug(f"{Fore.MAGENTA} SPILLOVER missing {p.get_missing()} bytes {Fore.RESET}")
                 self.bytes_from_previous_frames = data
                 return None
-
-            elif stat == Packet_State.UNDERFLOW:
+c
+            elif stat is Packet_State.UNDERFLOW:
                 log.debug(f"{Fore.RED} UNDERFLOW {data=} {Fore.RESET}")
                 self.bytes_from_previous_frames = data
                 return None
 
-            elif stat == Packet_State.IDLE:
+            elif stat is Packet_State.IDLE:
                 log.debug(f"{Fore.YELLOW} IDLE {Fore.RESET}")
                 return None
 

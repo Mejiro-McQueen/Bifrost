@@ -18,8 +18,10 @@ class RealTime_Telemetry_Frame_Processor(Service):
         Service.__init__(self)
         self.vcid = 0
         self.processor_name = "Real Time Telemetry"
+        self.secondary_header_length = 6 # Length of CCSDS Space Packet Secondary Header
         self.frame_depacketizer = Frame_Depacketizer(AOS_to_CCSDS_Depacketization,
-                                                     self.processor_name)
+                                                     self.processor_name,
+                                                     self.secondary_header_length)
         self.packet_tagger = CCSDS_Packet_Tagger(self.vcid,
                                                  self.processor_name,
                                                  time_processed)

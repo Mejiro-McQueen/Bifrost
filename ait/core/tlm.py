@@ -1160,8 +1160,7 @@ class TlmDict(dict):
         dictionary filename or YAML string.
         """
         self.filename = None
-        #self.opcode_to_defn = None
-
+        
         if len(args) == 1 and len(kwargs) == 0 and type(args[0]) == str:
             dict.__init__(self)
             self.load(args[0])
@@ -1169,17 +1168,12 @@ class TlmDict(dict):
         else:
             dict.__init__(self, *args, **kwargs)
 
-        self.get_opcodes()
+        self.opcode_to_defn = {packet_defn.opcode: packet_defn for packet_defn in self.values()}
 
     def lookup_by_opcode(self, opcode):
-        # TODO, come back to this
-        self.opcode_to_defn = {packet_defn.opcode: packet_defn for packet_defn in self.values()}
         return self.opcode_to_defn.get(opcode, None)
 
     def get_opcodes(self):
-        # TODO, come back to this
-        self.opcode_to_defn = {packet_defn.opcode: packet_defn for packet_defn in self.values()}
-        log.warn({packet_defn.opcode: packet_defn for packet_defn in self.values()})
         return self.opcode_to_defn
 
     def add(self, defn):
