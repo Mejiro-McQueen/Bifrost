@@ -51,7 +51,7 @@ class CCSDS_Packet():
         return s
 
     @staticmethod
-    def decode(packet_bytes, secondary_header_length=6):
+    def decode(packet_bytes, secondary_header_length=0):
         """Generate a packet"""
         data_length = int.from_bytes(packet_bytes[4:6], 'big')
         if not data_length: # regular check is apid 111111....
