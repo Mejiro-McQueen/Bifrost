@@ -24,7 +24,7 @@ class AOS_to_CCSDS_Depacketization():
                 log.debug(f"{Fore.MAGENTA} SPILLOVER missing {p.get_missing()} bytes {Fore.RESET}")
                 self.bytes_from_previous_frames = data
                 return None
-c
+
             elif stat is Packet_State.UNDERFLOW:
                 log.debug(f"{Fore.RED} UNDERFLOW {data=} {Fore.RESET}")
                 self.bytes_from_previous_frames = data

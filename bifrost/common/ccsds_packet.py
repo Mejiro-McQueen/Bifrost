@@ -36,12 +36,13 @@ class CCSDS_Packet():
         self.primary_header[HeaderKeys.SEQUENCE_FLAGS.name] = SEQUENCE_FLAGS
         self.primary_header[HeaderKeys.PACKET_SEQUENCE_OR_NAME.name] = PACKET_SEQUENCE_OR_NAME
         if not PACKET_DATA_LENGTH:
-            self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name] = len(data)-1
+            self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name] = len(data) - 1
         else:
             self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name] = PACKET_DATA_LENGTH
         self.secondary_header = {}  # TODO Handle secondary header
 
         self.encoded_packet = bytes()
+        self.secondary_header_encoded = bytes()
         self.error = None
 
     def __repr__(self):
@@ -74,12 +75,13 @@ class CCSDS_Packet():
         p = CCSDS_Packet(**decoded_header)
         p.encoded_packet = actual_packet
         #rest = packet_bytes[6+data_length+1:]
-            
+
+        if decoded_header[HeaderKeys.SEC_HDR_FLAG.name] and secondary_header_length:
+            p.secondary_header = data[:secondary_header_length]
+            p.secondary_header_encoded = data[:secondary_header_length]
+            p.data = data[secondary_header_length:]
+                
         if p.is_complete():
-            # This looks good, let's move it out, add the new map fields, and rewrite get_missing 
-            if decoded_header[HeaderKeys.SEC_HDR_FLAG.name] and secondary_header_length:
-                p.secondary_header = data[:secondary_header_length]
-                p.data = data[secondary_header_length:]
             return (Packet_State.COMPLETE, p)
         else:
             return (Packet_State.SPILLOVER, p)
@@ -92,7 +94,8 @@ class CCSDS_Packet():
 
     def get_missing(self):
         m = (g := self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name]+1) - (q := len(self.data))
-        #print(f"{m=} {g=} {q=}")
+        m -= (k := len(self.secondary_header_encoded))
+        #print(f"{m=} {g=} {q=} {k=}")
         return m
 
     def get_next_index(self):
