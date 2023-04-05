@@ -4,6 +4,7 @@ from bifrost.services.downlink.alarms import Alarm_Check
 from bifrost.services.downlink.tagged_packet import TaggedPacket
 import struct
 import sys
+from colorama import Fore
 
 tlm_dict = tlm.getDefaultDict()  # Call to AIT
 
@@ -23,14 +24,17 @@ class CCSDS_Packet_Tagger:
         for packet in packets:
             try:
                 self.counter += 1
+                if packet.is_idle():
+                    continue
 
                 # Decoding
                 uid = packet.primary_header['APPLICATION_PROCESS_IDENTIFIER']
                 packet_def = tlm_dict.lookup_by_opcode(uid)  # Call to AIT
                 if not packet_def:
-                    log.error(f"Could not lookup {uid}: \n {self.processor_name} {self.vcid=} {packet=}")
+                    log.error(f"Could not lookup apid/opcode/{uid=}, {self.processor_name=}, {self.vcid=}, {packet=}")
                     continue
                     
+                log.debug(f"{Fore.GREEN} OK! {uid=} {Fore.RESET}")
                 tagged_packet = TaggedPacket(packet, packet_def.name, uid)
                 decoded_map = tlm.Packet(packet_def, packet.data)  # Call to AIT
                 tagged_packet.decoded_map = dict(decoded_map.items())
@@ -58,6 +62,8 @@ class CCSDS_Packet_Tagger:
                 excp = sys.exc_info()
                 log.error(excp)
                 raise e
+        if not tagged_packets:
+            log.error("No packets found!")
         return tagged_packets
 
     def get_alarm_map(self, tagged_packet: TaggedPacket):

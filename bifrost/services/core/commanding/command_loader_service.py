@@ -2,7 +2,7 @@ from bifrost.common.service import Service
 from bifrost.common.loud_exception import with_loud_exception, with_loud_coroutine_exception
 from pathlib import Path
 from ait.core import log
-import sunrise.packet_processors.scripts.sdlFts as sdlFts
+
 from bifrost.services.core.commanding.cmd_meta_data import CmdMetaData
 import tqdm
 from colorama import Fore
@@ -60,9 +60,7 @@ class CommandLoader():
                                           cmd_struct.payload_string)
             valid, data = response
             if valid and execute:
-               # cmd_struct.payload_bytes = obj.encode()
-                #self.update_tracker(cmd_struct)
-                cmd_struct.payload_bytes = ast.literal_eval(data)
+                cmd_struct.payload_bytes = data
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
@@ -102,13 +100,15 @@ class CommandLoader():
         log.info(f"Uploading {p}")
         uid = CmdMetaData.get_uid() # Huge sequences, so get a new uid
         try:
-            metadata = sdlFts.send_uplink_products_from_directory(p, uid)
-            for cmd_struct in metadata:
-                self.get_tracker(cmd_struct)
-                await self.publish('Uplink.CmdMetaData', cmd_struct)
-            res = {'valid': True,
-                   'uid': uid,
-                   'execution_result': metadata[0].payload_string}
+            res = {'valid': False}
+            return res
+            #metadata = sdlFts.send_uplink_products_from_directory(p, uid)
+            #for cmd_struct in metadata:
+            #    self.get_tracker(cmd_struct)
+            #    await self.publish('Uplink.CmdMetaData', cmd_struct)
+            #res = {'valid': True,
+            #       'uid': uid,
+            #       'execution_result': metadata[0].payload_string}
         except Exception as e:
             res = {'valid': False}
             log.error(e)

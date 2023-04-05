@@ -200,7 +200,7 @@ class Service():
         data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
         await self.js.publish(subject, data)
 
-    async def publish(self, topic_pattern, data, reply=None):
+    async def publish(self, topic_pattern, data, reply=''):
         try:
             data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
             await self.nc.publish(topic_pattern, data, reply)

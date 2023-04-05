@@ -1,4 +1,5 @@
 from bifrost.common.service import Service
+from bifrost.common.loud_exception import with_loud_coroutine_exception, with_loud_exception
 import ait.core
 from ait.core import log
 from ait.dsn.sle.frames import AOSTransFrame
@@ -13,7 +14,8 @@ class AOS_Tagger():
     crc_func = crc_hqx
     frame_counter_modulo = 16777216  # As defined in CCSDS ICD: https://public.ccsds.org/Pubs/732x0b4.pdf
 
-    def __init__(self, publisher):
+    @with_loud_exception
+    def __init__(self, publisher, fec_check):
         self.publish = publisher
         self.absolute_counter = 0
         vcids = ait.config.get('dsn.sle.aos.virtual_channels')._config  # what a low IQ move...
@@ -22,8 +24,10 @@ class AOS_Tagger():
         self.vcid_loss_count = {**self.vcid_sequence_counter}
         self.vcid_corrupt_count = {**self.vcid_sequence_counter}
         self.hot = {i: False for i in self.vcid_sequence_counter.keys()}
+        self.fec_check = fec_check
         return
 
+    @with_loud_exception
     def subset_map(self):
         m = {'absolute_counter': self.absolute_counter,
              'vcid_counter': self.vcid_sequence_counter,
@@ -31,6 +35,7 @@ class AOS_Tagger():
              'vcid_corruptions': self.vcid_corrupt_count}
         return m
 
+    @with_loud_coroutine_exception
     async def tag_frame(self, raw_frame):
 
         async def tag_corrupt():
@@ -54,6 +59,7 @@ class AOS_Tagger():
                 await self.publish("Bifrost.Errors.Frames.ECF_Mismatch", self.vcid_corrupt_count)
             return
 
+        @with_loud_coroutine_exception
         async def tag_out_of_sequence():
             if tagged_frame.vcid not in self.vcid_sequence_counter or tagged_frame.vcid == 'Unknown':
                 # Junk Frame
@@ -86,7 +92,8 @@ class AOS_Tagger():
                                    idle=idle,
                                    channel_counter=channel_counter)
 
-        await tag_corrupt()
+        if self.fec_check:
+            await tag_corrupt()
         await tag_out_of_sequence()
 
         return tagged_frame
@@ -98,24 +105,36 @@ class AOS_Frame_Checks_Service(Service):
 
     PROTIP: Do add more than 1 callback per queue here
     '''
+    @with_loud_exception
     def __init__(self):
-        self.tagger = AOS_Tagger(self.publish)
         super().__init__()
+        self.tagger = AOS_Tagger(self.publish, True)
         self.report_time = 5
         self.loop.create_task(self.supervisor_tree())
         self.start()
-        
+
+    @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
-      
+        self.tagger = AOS_Tagger(self.publish, self.fec_check)
+
+    @with_loud_coroutine_exception
     async def process(self, topic, message, reply):
         if not message:
             log.error("received no data!")
             return
 
         tagged_frame = await self.tagger.tag_frame(message)
-        await self.stream(f'Telemetry.AOS.VCID.{tagged_frame.vcid}.TaggedFrame', tagged_frame)
+        # TODO: Goofy AOS Frame type assumes the VCID numbers, but does not give nice response when mismatch.
+        # We crash whenever we do not have that VCID declared for JetStream
+        # Add a guard in service.yaml
+        try:
+            await self.stream(f'Telemetry.AOS.VCID.{tagged_frame.vcid}.TaggedFrame', tagged_frame)
+        except Exception as e:
+            log.error(e)
+            log.error(tagged_frame)
 
+    @with_loud_coroutine_exception
     async def supervisor_tree(self):
         async def monitor():
             while True:
