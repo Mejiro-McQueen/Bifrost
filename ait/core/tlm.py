@@ -1168,12 +1168,18 @@ class TlmDict(dict):
         else:
             dict.__init__(self, *args, **kwargs)
 
-        self.opcode_to_defn = {packet_defn.opcode: packet_defn for packet_defn in self.values()}
+        self.opcode_to_defn = None
+        # Goofy tlm extensions are preventing opcode map from generating
+        # Remove after SunRISE has abandoned extensions
 
     def lookup_by_opcode(self, opcode):
+        if not hasattr(self, 'opcode_to_defn') or not self.opcode_to_defn:
+            self.opcode_to_defn = {packet_defn.opcode: packet_defn for packet_defn in self.values()}
         return self.opcode_to_defn.get(opcode, None)
 
     def get_opcodes(self):
+        if not hasattr(self, "opcode_to_defn") or not self.opcode_to_defn:
+            self.opcode_to_defn = {packet_defn.opcode: packet_defn for packet_defn in self.values()}
         return self.opcode_to_defn
 
     def add(self, defn):

@@ -15,7 +15,7 @@ class AOS_Tagger():
     frame_counter_modulo = 16777216  # As defined in CCSDS ICD: https://public.ccsds.org/Pubs/732x0b4.pdf
 
     @with_loud_exception
-    def __init__(self, publisher, fec_check):
+    def __init__(self, publisher, fec_check=True):
         self.publish = publisher
         self.absolute_counter = 0
         vcids = ait.config.get('dsn.sle.aos.virtual_channels')._config  # what a low IQ move...
