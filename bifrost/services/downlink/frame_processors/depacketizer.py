@@ -11,11 +11,10 @@ class Frame_Depacketizer():
                  enforce_sequence=False,
                  secondary_header_length=0):
         self.deframer_type = depacketization_type  # Use to reinit depacketizer
-        self.deframer = self.deframer_type()
         self.processor_name = processor_name
         self.enforce_sequence = enforce_sequence
         self.secondary_header_length = secondary_header_length
-
+        self.deframer = self.deframer_type(secondary_header_length)
 
     @with_loud_exception
     def __call__(self, tagged_frame: TaggedFrame):
