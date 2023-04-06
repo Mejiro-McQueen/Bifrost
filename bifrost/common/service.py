@@ -237,6 +237,10 @@ class Service():
         r = await self.config_request('global.mission.pass_id')
         return r
 
+    async def config_request_sv_name(self):
+        r = await self.config_request('instance.space_vehicle.sv_name')
+        return r
+
     def __del_(self):
         self.nc.close()
 
