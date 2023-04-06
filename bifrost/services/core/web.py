@@ -12,6 +12,7 @@ import uvicorn
 import pickle
 import ait.core.tlm
 import ait.core.cmd
+import ait.core.log as log
 from colorama import Fore
 
 
@@ -25,7 +26,7 @@ class Web_Server(Service):
     async def start_server(self):
         config = uvicorn.Config(self.app, port=8000, host='0.0.0.0', log_level="error")
         server = uvicorn.Server(config)
-        print(f"{Fore.CYAN}Bifrost Web Service Now serving on {config.host}:{config.port}{Fore.RESET}")
+        log.info(f"{Fore.CYAN}Bifrost Web Service Now serving on {config.host}:{config.port}{Fore.RESET}")
         await server.serve()
 
     @with_loud_coroutine_exception

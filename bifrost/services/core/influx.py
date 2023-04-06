@@ -7,10 +7,8 @@ from bifrost.services.downlink.alarms import Alarm_State
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
 import urllib3
+import json
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-pass_number = ait.config.get('sunrise.pass_id')
-sv_name = ait.config.get('sunrise.sv_name')
-bucket = sv_name
 
 
 class Influx(Service):
@@ -21,6 +19,8 @@ class Influx(Service):
 
     @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
+        self.pass_number = await self.config_request_pass_id()
+        self.sv_name = await self.config_request_sv_name()
         await super().reconfigure(topic, message, reply)
         self.setup_connection()
 
@@ -33,7 +33,7 @@ class Influx(Service):
                                          verify_ssl=False)
             #query_api = client.query_api()
             self.buckets_api = self.client.buckets_api()
-            self.buckets_api.create_bucket(bucket_name=sv_name,
+            self.buckets_api.create_bucket(bucket_name=self.sv_name,
                                            org=self.org)
         except Exception as e:
             if e.response.status == 422:
@@ -69,16 +69,17 @@ class Influx(Service):
         d = [{'time': t,
               'measurement': 'BIFROST_COMMAND_HISTORY',
               'fields': fields,
-              'tags': {'sv_name': str(sv_name),
-                       'pass_number': str(pass_number),
+              'tags': {'sv_name': self.sv_name,
+                       'pass_number': str(self.pass_number),
                        'user': 'Future'},
               }]
         with self.client.write_api(write_options=SYNCHRONOUS) as f:
-            f.write(bucket=bucket, record=d)
+            f.write(bucket=self.sv_name, record=d)
 
     @with_loud_coroutine_exception
     async def write_telemetry(self, topic, data, reply):
         # Consider using Jetstream instead
+        #log.info(f'{json.dumps(data)=}')
         try:
             packet_metadata = data
             packet_name = packet_metadata['packet_name']
@@ -112,7 +113,7 @@ class Influx(Service):
                     "fields": fields}
 
             with self.client.write_api(write_options=SYNCHRONOUS) as f:
-                f.write(bucket=bucket, record=data)
+                f.write(bucket=self.sv_name, record=data)
 
         except Exception as e:
             log.error(f"Data archival failed with error: {e}")

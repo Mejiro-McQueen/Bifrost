@@ -88,7 +88,7 @@ class BCH():
 
         else:
             ait.core.log.error("Length of input data for BCH is not equal to 56 bits")
-            ait.core.log.error("Length: "+  str(len(input_byte_array)*8) + " bits")
+            ait.core.log.error("Length: " + str(len(input_byte_array)*8) + " bits")
             return None
 
         return output_byte_array

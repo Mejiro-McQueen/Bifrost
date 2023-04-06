@@ -5,7 +5,7 @@ import json
 
 
 async def telemetry_view():
-    async with websockets.connect("ws://localhost:8000/command_loader") as websocket:
+    async for websocket in websockets.connect("ws://localhost:8000/command_loader"):
         msg = ("CL.Execute", "MISSION_MANAGER_SWITCH_MODE NO_OVERWRITE_IMMEDIATE 0 0 8 Downlink")
         msg = ("CL.Execute", "INNOFLIGHT_SCR106_INIT_AND_POWER_TRANSMITTER NO_OVERWRITE_IMMEDIATE 0 2 36000 60 /mnt/fsw/configuration/innoflightScr106/txHighRateConfig.xml'")
         # msg = ('CL.Validate", "MISSION_MANAGER_SWITCH_MODE NO_OVERWRITE_IMMEDIATE 0 0 8 Downlink 0')
@@ -26,6 +26,9 @@ async def telemetry_view():
         resp = json.dumps(resp, indent=4)
         print(resp)
         print("\n")
+        while (r := input("Restart Script? [y/n]")) not in ['Y','y','']:
+            if r not in ['Y', 'y', '']:
+                return
 
 if __name__ == "__main__":
     try:

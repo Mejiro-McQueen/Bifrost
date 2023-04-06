@@ -128,8 +128,13 @@ class CommandLoader():
             res['valid'] = all(i['valid'] for i in res['result'])
         elif command_type is Command_Type.COMMAND:
             cmd_struct = CmdMetaData(i)
-            res['valid'], _ = await self.request('Bifrost.Services.Dictionary.Command.Validate',
-                                                 cmd_struct.payload_string)
+            res['valid'], res['payload'] = await self.request('Bifrost.Services.Dictionary.Command.Validate',
+                                                              cmd_struct.payload_string)
+            res['command'] = cmd_struct.payload_string
+            if res['payload']:
+                res['payload'] = str(res['payload'].hex())
+            else:
+                res['payload'] = 'Error'
         elif command_type is Command_Type.ECHO:
             res['valid'] = True
         elif command_type is Command_Type.SLEEP:
@@ -326,3 +331,6 @@ class Command_Loader_Service(Service):
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
         return
+
+
+# TODO: Might as well include encoded payload in receipt on execute?
