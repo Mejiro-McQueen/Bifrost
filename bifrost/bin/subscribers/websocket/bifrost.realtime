@@ -5,7 +5,7 @@ import json
 
 
 async def telemetry_view():
-    async with websockets.connect("ws://localhost:8000/telemetry") as websocket:
+    async for websocket in websockets.connect("ws://localhost:8000/telemetry"):
         while x := await websocket.recv():
             x = json.loads(x)
             x = json.dumps(x, indent=4)
@@ -15,8 +15,10 @@ if __name__ == "__main__":
     try:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(telemetry_view())
-    except Exception as e:
-        print(e)
+    except websockets.exceptions.ConnectionClosed:
+        pass
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        print(e)
         
