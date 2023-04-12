@@ -1,5 +1,5 @@
 from bifrost.common.service import Service
-from bifrost.common.loud_exception import with_loud_exception
+from bifrost.common.loud_exception import with_loud_exception, with_loud_coroutine_exception
 from ait.core import log
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -35,6 +35,7 @@ class Subscription:
     ip: str = field(init=False)
     log_header: str = field(init=False)
 
+    @with_loud_exception
     def __post_init__(self):
         """
         Sets up client/server sockets.
@@ -58,9 +59,11 @@ class Subscription:
         self.receive_counter = 0
         asyncio.create_task(self.start())
 
+    @with_loud_exception
     def __del__(self):
         self.shutdown()
 
+    @with_loud_exception
     def shutdown(self):
         """
         Shutdown and close open socket, if any.
@@ -78,6 +81,7 @@ class Subscription:
              'Rx_Count': self.receive_counter}
         return m
 
+#    @with_loud_coroutine_exception
     async def handle_server(self):
         self.reader, self.writer = await asyncio.start_server(self.hostname, self.port)
         while self.reader or self.writer:
@@ -92,8 +96,10 @@ class Subscription:
                 await self.read_queue.put((self.topic, data))
                 self.receive_counter += 1
 
+#    @with_loud_coroutine_exception
     async def handle_client(self):
         self.reader, self.writer = await asyncio.open_connection(self.hostname, self.port)
+        log.info(f"{Fore.GREEN}Connection to {self.server_name} is ready. {Fore.RESET}")
         while self.reader or self.writer:
             if self.mode is Mode.TRANSMIT:
                 data = await self.write_queue.get()
@@ -106,7 +112,7 @@ class Subscription:
                 await self.read_queue.put((self.topic, data))
                 self.receive_counter += 1
          
-    @with_loud_exception
+    @with_loud_coroutine_exception
     async def start(self):
         try:
             if self.hostname:
@@ -117,8 +123,16 @@ class Subscription:
                 await self.handle_server()
         except ConnectionRefusedError:
             log.error(f"Connection was refused for {self}.")
+            await asyncio.sleep(5)
+            await self.start()
+        except socket.error:
+            log.error(f'Could not establish connection for {self}')
+            await asyncio.sleep(5)
+            await self.start()
         except Exception as e:
             log.error(e)
+            await asyncio.sleep(5)
+            await self.start()
 
 
 class TCP_Manager(Service):
@@ -155,6 +169,7 @@ class TCP_Manager(Service):
     See documentation for more details.
     """
 
+    @with_loud_exception
     def __init__(self):
         """
         Create Subscriptions based on config.yaml entries.
@@ -171,6 +186,7 @@ class TCP_Manager(Service):
         self.loop.create_task(self.supervisor_tree())
         self.start()
 
+    @with_loud_coroutine_exception
     async def service_reads(self):
         while self.running:
             topic, msg = await self.read_queue.get()
@@ -216,6 +232,7 @@ class TCP_Manager(Service):
         self.configuration = subscription_map
         self.hot = True
 
+    @with_loud_coroutine_exception
     async def process(self, topic, message, reply):
         """
         Send data to the transmit Subscriptions associated with topic.
@@ -238,6 +255,9 @@ class TCP_Manager(Service):
         if isinstance(message, CmdMetaData):
             await self.publish('Uplink.CmdMetaData.Complete', message)
 
+#        log.info(message)
+
+    @with_loud_coroutine_exception
     async def supervisor_tree(self, msg=None):
         async def monitor():
             while True:
@@ -249,3 +269,6 @@ class TCP_Manager(Service):
                     await self.publish('Bifrost.Monitors.TCP_STATUS', msg)
 
         self.loop.create_task(monitor())
+
+
+# TODO Restore timeout option

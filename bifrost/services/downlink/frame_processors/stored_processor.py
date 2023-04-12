@@ -18,9 +18,6 @@ class Stored_Telemetry_Frame_Processor(Service):
         self.processor_name = "Stored Time Telemetry"
         self.frame_depacketizer = Frame_Depacketizer(SunRISE_Depacketization,
                                                      self.processor_name)
-        self.packet_tagger = CCSDS_Packet_Tagger(self.vcid,
-                                                 self.processor_name,
-                                                 packet_time_stamp_from_gps_s_ns)
         self.start()
 
     @with_loud_exception
@@ -40,4 +37,10 @@ class Stored_Telemetry_Frame_Processor(Service):
     @with_loud_exception
     async def reconfigure(self, topic, data, reply):
         self.pass_id = await self.config_request_pass_id()
+        self.sv_identifier = await self.config_request('instance.sv_identifier')
         await super().reconfigure(topic, data, reply)
+        self.packet_tagger = CCSDS_Packet_Tagger(self.vcid,
+                                                 self.processor_name,
+                                                 packet_time_stamp_from_gps_s_ns,
+                                                 self.pass_id,
+                                                 self.sv_identifier)

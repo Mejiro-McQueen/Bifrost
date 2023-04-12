@@ -200,7 +200,7 @@ class Service():
         data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
         await self.js.publish(subject, data)
 
-    async def publish(self, topic_pattern, data, reply=None):
+    async def publish(self, topic_pattern, data, reply=''):
         try:
             data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
             await self.nc.publish(topic_pattern, data, reply)
@@ -235,6 +235,14 @@ class Service():
 
     async def config_request_pass_id(self):
         r = await self.config_request('global.mission.pass_id')
+        return r
+
+    async def config_request_sv_name(self):
+        r = await self.config_request('instance.space_vehicle.sv_name')
+        return r
+
+    async def config_request_downlink_path(self):
+        r = await self.request('Bifrost.Configuration.Downlink_Path')
         return r
 
     def __del_(self):

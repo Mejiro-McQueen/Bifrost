@@ -9,7 +9,7 @@ services:
     extra_hosts:
       - "sdlvm:10.10.10.5"
     volumes:
-     - /sunrise:/sunrise:z
+     - /gds:/gds:z
     env_file: docker.env
     networks: ["nats"]
     depends_on:
@@ -40,14 +40,14 @@ services:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=rootroot
       - DOCKER_INFLUXDB_INIT_PASSWORD=rootroot
-      - DOCKER_INFLUXDB_INIT_ORG=sunrise
-      - DOCKER_INFLUXDB_INIT_BUCKET=bebop
+      - DOCKER_INFLUXDB_INIT_ORG=bifrost
+      - DOCKER_INFLUXDB_INIT_BUCKET=bifrost
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN='YourKey'
     ports:
       - 8086:8086
     volumes:
-       - /sunrise/influx/data:/var/lib/influxdb2:z
-       - /sunrise/influx/config:/etc/influxdb2
+       - /gds/influx/data:/var/lib/influxdb2:z
+       - /gds/influx/config:/etc/influxdb2
     healthcheck:
       test: "curl -f influx:8086/ping"
       interval: 5s

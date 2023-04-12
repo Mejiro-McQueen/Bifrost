@@ -262,17 +262,17 @@ class Cmd(object):
         """The command argument definitions."""
         return self.defn.argdefns
 
-    def encode(self, pad=106):
+    def encode(self, pad=0):  # Padding values here is retarded
         """Encodes this AIT command to binary.
 
-        If pad is specified, it indicates the maximum size of the encoded
-        command in bytes.  If the encoded command is less than pad, the
-        remaining bytes are set to zero.
+        # If pad is specified, it indicates the maximum size of the encoded
+        # command in bytes.  If the encoded command is less than pad, the
+        # remaining bytes are set to zero.
 
-        Commands sent to ISS payloads over 1553 are limited to 64 words
-        (128 bytes) with 11 words (22 bytes) of CCSDS overhead (SSP
-        52050J, Section 3.2.3.4).  This leaves 53 words (106 bytes) for
-        the command itself.
+        # Commands sent to ISS payloads over 1553 are limited to 64 words
+        # (128 bytes) with 11 words (22 bytes) of CCSDS overhead (SSP
+        # 52050J, Section 3.2.3.4).  This leaves 53 words (106 bytes) for
+        # the command itself.
         """
         try:
             opcode = struct.pack(">H", self.defn.opcode)

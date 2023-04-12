@@ -1,24 +1,18 @@
+from bifrost.common.loud_exception import with_loud_exception
 import errno
 import json as json
-import ait
 from ait.core import log
-from pathlib import Path
-from datetime import datetime
-
-pass_number = str(ait.config.get('sunrise.pass_id'))
-sv_name = ait.config.get('sunrise.sv_name')
-downlink_path = Path(ait.config.get('sunrise.data_path')) / str(pass_number) / sv_name / 'downlink' 
-utc_timestamp_now = (lambda: datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S"))
 
 
 class Disk_Writer():
     """
     Allows processors to write a dictionary to disk.
+    TODO: Everyone should be requesting that monitor write to disk
     """
-    # This is weird
-    def __init__(self, path, extension, fname, subpath=""):
+    @with_loud_exception
+    def __init__(self, path, extension, fname, pass_id, downlink_path, sv_name,subpath="",):
         self.path = (downlink_path / path / subpath
-                     / (f"{fname}_{sv_name}_{pass_number}{extension}.ndjson"))
+                     / (f"{fname}_{sv_name}_{pass_id}{extension}.ndjson"))
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -32,12 +26,13 @@ class Disk_Writer():
         self.first_entry = True
         self.end_pos = self.f.tell()
 
-    def write_to_disk(self, data: map, event_time_gps=None):
+    @with_loud_exception
+    def write_to_disk(self, data: map, timestamp, event_time_gps=None):
         r = {}
         if event_time_gps:
             r['event_time_gps'] = str(event_time_gps)
 
-        r['time_processed'] = str(utc_timestamp_now())
+        r['time_processed'] = str(timestamp)
         r['data'] = data
 
         r = json.dumps(r, indent=4)
@@ -52,5 +47,6 @@ class Disk_Writer():
 
         return (self.path, self.end_pos)
 
+    @with_loud_exception
     def __del__(self):
         self.close()

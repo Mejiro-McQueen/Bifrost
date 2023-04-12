@@ -5,8 +5,8 @@ import json
 
 
 async def variable_messages_view():
-    async with websockets.connect("ws://localhost:8000/monitors") as ws:
-        while (resp := await ws.recv()):
+    async for websocket in websockets.connect("ws://localhost:8000/monitors"):
+        while (resp := await websocket.recv()):
             resp = json.loads(resp)
             resp = json.dumps(resp, indent=4)
             print(resp)

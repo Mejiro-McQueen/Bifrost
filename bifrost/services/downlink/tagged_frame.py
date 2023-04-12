@@ -20,3 +20,13 @@ class TaggedFrame:
                'is_idle': self.idle,
                'frame': self.frame.hex()}
         return res
+
+    def __repr__(self):
+        s = f'frame={self.frame.hex()}, '
+        s += f'vcid={self.vcid}, '
+        s += f'channel_counter={self.channel_counter}, '
+        s += f'absolute_counter={self.absolute_counter}, '
+        s += f'corrupt_frame={self.corrupt_frame}, '
+        s += f'out_of_sequence={self.out_of_sequence}, '
+        s += f'idle={self.idle}'
+        return s

@@ -39,8 +39,8 @@ bifrost:
 
           instance:
             space_vehicle:
-              sv_name: bebop
-              sv_identifier: BB
+              sv_name: Enterprise
+              sv_identifier: CVN-65
               ccsds_dl_scid: 186
 
     - service:
@@ -92,15 +92,15 @@ bifrost:
         name: bifrost.services.core.web.Web_Server
         disabled: False
         telemetry_stream_pattern: 'Telemetry.AOS.VCID.1.TaggedPacket.>'
-        index: '/sunrise/SunRISE-AIT/sunrise/test/'
+        index: 'some_http_index'
         downlink_update_pattern: 'Bifrost.Messages.Info.File_Processor.Downlink_Update'
         
     - service:
         name: bifrost.services.core.influx.Influx
         disabled: False
         host_url: http://localhost:8086
-        api_token: "IfTvVc7ni-Xipn0GpB3g-oLd5g5lJQh3UarZlS5pRPzCtef4AAP3vdCRpe_QqxS1xBnb_jgEK6WmckBvk6i1ng=="
-        org: sunrise
+        api_token: ""
+        org: bifrost
         streams: Null
         topics:
           write_telemetry:
@@ -204,15 +204,6 @@ bifrost:
             - Telemetry.AOS.VCID.2.TaggedFrame
 
     - service:
-        name: sunrise.frame_processors.file_processor.File_Frame_Processor
-        disabled: False
-        auto_reassemble: True
-        topics: Null
-        streams:
-          process:
-            - Telemetry.AOS.VCID.4.TaggedFrame
-
-    - service:
         name: bifrost.services.extra.synchronization_service.Desynchronization_Service
         disabled: False
         topics: Null
@@ -294,71 +285,6 @@ bifrost:
             - 'Telemetry.AOS.VCID.*.TaggedFrame'
 
     - service:
-        name: sunrise.packet_processors.payload_tracker_processor.Payload_Tracker_Service
-        disabled: False
-        topics:
-          process_active_downlink:
-            - 'Telemetry.AOS.VCID.1.TaggedPacket.SUNRISE_PAYLOAD_ACTIVE_FILE_DOWNLINK_INFO'
-          process_reassembly_report:
-            - 'Bifrost.Messages.Info.File_Manager.File_Reassembly_Result'
-        active_dl_field_to_filename_regex:
-          acknowledge_log:
-            - '^acknowledge.*$' 
-          cion_watchdog_log:
-              - '^cionWatchdog.*$'
-          dh_adc_bin:
-            - '^dh\.adc.*$'
-          dh_bin:
-            - '^dh\.bin.*$' 
-          dh_log:
-            - '^dh\.log.*$'
-          dh_spectra_bin:
-            - '^dh\.spectra.*$'
-          driver_status_log:
-            - '^driverstatus.*$'
-          dolores_log:
-            - '^dolores\.log.*$'
-          adc128_sensors_log:
-            - '^adc128sensors.*$'
-          interface_test_log:
-            - '^interface_test\.log.*$'
-          obs_nav2_dr_orb_clk_log:
-            - '^obsNav2DrOrbClk.*$'
-          timesync_udp_log:
-            - '^timesync_udp\.log.*$'
-          pps_log:
-            - '^pps\.log.*$'
-          rtgx_postfit_residuals_log:
-            - '^rtgxPostfitResiduals\.log.*$'
-          rtgx_log:
-            - '^rtgx\.log.*$'
-          rtgx2_zmq_log:
-            - '^rtgx2zmq\.log.*$'
-          start_rtgx_log:
-            - '^startRtgx\.log.*$'
-          startup_log:
-            - '^startup\.log.*$'
-          rtgx_pos_log_counts:
-            - '^rtgx\.pos\.log.*$'
-          rtgx_tdp_log:
-            - '^rtgx\.tdp\.log.*$'
-          system_status_log:
-            - '^systemstatus.*$'
-          time_server_log:
-            - '^time_server\.log.*$'
-          tmr_sem_monitor_log:
-            - '^tmr_sem_monitor\.log.*$'
-
-    - service:
-        name: sunrise.packet_processors.state_of_health_processor.StateOfHealthSubProcessor
-        disabled: False
-        topics:
-          process:
-            - 'Telemetry.AOS.VCID.*.TaggedPacket.STATE_OF_HEALTH_MONITOR_STATE_OF_HEALTH_REPORT'
-        streams: Null
-        announce: True
-
-    - service:
         name: bifrost.services.core.task_manager.task_manager.Task_Manager
         disabled: False
         auto_s3_upload: False
@@ -389,20 +315,20 @@ bifrost:
 
           #   Untar:
           #     filename_filters:
-          #       - '^adc128sensors.*\.(tar)$'
+          #       - '^sensors.*\.(tar)$'
 
           # Untar:
           #   Bz2_Decompress:
           #     filename_filters:
-          #       - '^adc128sensors.*\.(bz2)$'
+          #       - '^sensors.*\.(bz2)$'
 
           # Bz2_Decompress:
           #   Post_Process:
           #     filename_filters:
-          #       - '^adc128sensors.*[^.]{9}$' # Stop matching to avoid .metadata 
+          #       - '^sensors.*[^.]{9}$' # Stop matching to avoid .metadata 
           #     args:
           #       processor:
-          #         - adc128sensors
+          #         - sensors
 
     - service:
         name: bifrost.services.testing.injector_service.Data_Injection_Service

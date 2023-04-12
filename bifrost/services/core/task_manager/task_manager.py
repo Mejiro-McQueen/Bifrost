@@ -88,7 +88,9 @@ class Task_Manager(Service):
                                     index_filepath,
                                     s3_path,
                                     self.aws_region,
-                                    binary=bytes_form)
+                                    binary=bytes_form,
+                                    pass_id=self.pass_id,
+                                    sv_name=self.sv_name)
         task.nofork = True
         await self.publish(task.name, task)
 

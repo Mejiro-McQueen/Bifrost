@@ -1,0 +1,29 @@
+import asyncio
+import websockets
+import json
+
+
+async def telemetry_view():
+    async for websocket in websockets.connect("ws://localhost:8000/command_loader"):
+        msg = ("CL.Execute", "FSS_RESTART_CFS")
+
+        msg = json.dumps({'topic': msg[0],
+                          'message': msg[1]})
+        await websocket.send(msg)
+        resp = await websocket.recv()
+        resp = json.loads(resp)
+        resp = json.dumps(resp, indent=4)
+        print(resp)
+        print("\n")
+        while (r := input("Restart Script? [y/n]")) not in ['Y','y','']:
+            if r not in ['Y', 'y', '']:
+                return
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(telemetry_view())
+    except Exception as e:
+        print(e)
+    except KeyboardInterrupt:
+        pass

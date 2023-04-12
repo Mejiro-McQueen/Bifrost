@@ -2,7 +2,7 @@ from bifrost.common.service import Service
 from bifrost.common.loud_exception import with_loud_exception, with_loud_coroutine_exception
 from pathlib import Path
 from ait.core import log
-import sunrise.packet_processors.scripts.sdlFts as sdlFts
+
 from bifrost.services.core.commanding.cmd_meta_data import CmdMetaData
 import tqdm
 from colorama import Fore
@@ -62,7 +62,7 @@ class CommandLoader():
             if valid and execute:
                # cmd_struct.payload_bytes = obj.encode()
                 #self.update_tracker(cmd_struct)
-                cmd_struct.payload_bytes = bytes(data, 'ascii') 
+                cmd_struct.payload_bytes = data
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
@@ -102,13 +102,15 @@ class CommandLoader():
         log.info(f"Uploading {p}")
         uid = CmdMetaData.get_uid() # Huge sequences, so get a new uid
         try:
-            metadata = sdlFts.send_uplink_products_from_directory(p, uid)
-            for cmd_struct in metadata:
-                self.get_tracker(cmd_struct)
-                await self.publish('Uplink.CmdMetaData', cmd_struct)
-            res = {'valid': True,
-                   'uid': uid,
-                   'execution_result': metadata[0].payload_string}
+            res = {'valid': False}
+            return res
+            #metadata = sdlFts.send_uplink_products_from_directory(p, uid)
+            #for cmd_struct in metadata:
+            #    self.get_tracker(cmd_struct)
+            #    await self.publish('Uplink.CmdMetaData', cmd_struct)
+            #res = {'valid': True,
+            #       'uid': uid,
+            #       'execution_result': metadata[0].payload_string}
         except Exception as e:
             res = {'valid': False}
             log.error(e)
@@ -128,6 +130,13 @@ class CommandLoader():
             res['valid'] = all(i['valid'] for i in res['result'])
         elif command_type is Command_Type.COMMAND:
             cmd_struct = CmdMetaData(i)
+            res['valid'], res['payload'] = await self.request('Bifrost.Services.Dictionary.Command.Validate',
+                                                              cmd_struct.payload_string)
+            res['command'] = cmd_struct.payload_string
+            if res['payload']:
+                res['payload'] = str(res['payload'].hex())
+            else:
+                res['payload'] = 'Error'
             res['valid'], _ = await self.request('Bifrost.Services.Dictionary.Command.Validate',
                                                  cmd_struct.payload_string)
         elif command_type is Command_Type.ECHO:
@@ -326,3 +335,6 @@ class Command_Loader_Service(Service):
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
         return
+
+
+# TODO: Might as well include encoded payload in receipt on execute?

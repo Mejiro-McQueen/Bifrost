@@ -10,13 +10,6 @@ import importlib
 import os
 from urllib import parse
 
-pass_number = ait.config.get('sunrise.pass_id')
-sv_name = ait.config.get('sunrise.sv_name')
-downlink_path = Path(ait.config.get('sunrise.data_path')) / str(pass_number) / sv_name / 'downlink'
-aws_bucket = ait.config.get('aws.bucket')
-aws_region = ait.config.get('aws.region')
-aws_profile = ait.config.get('aws.profile')
-
 
 class Task_Message(ABC):
     @classmethod
@@ -78,7 +71,7 @@ class Tasks:
         """
         
         # Use binary to specify object put instead of file put
-        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag=-1, binary=None):
+        def __init__(self, ID, bucket, filepath, s3_path, s3_region, ground_tag=-1, binary=None, pass_id=None, sv_name='Chessmaster-Hex'):
             Task_Message.__init__(self, ID, filepath)
             self.bucket = bucket
             self.s3_path = s3_path
@@ -87,7 +80,7 @@ class Tasks:
             self.metadata = None
             self.canonical_path = None
             self.file_size = os.path.getsize(filepath)
-            self.tags = {'pass_id': pass_number,
+            self.tags = {'pass_id': pass_id,
                          'sv_name': sv_name,
                          'ground_tag': ground_tag,
                          }
@@ -229,7 +222,7 @@ class Task_Transformers:
                     return
                 filepath = task_from.filepath
                 ground_tag = task_from.ground_tag
-                s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{ground_tag}/{filename}"
+                s3_path = f"data/{pass_id}/{sv_name}/file_downlink/{ground_tag}/{filename}"
 
                 res = []
                 upload_file = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
@@ -239,7 +232,7 @@ class Task_Transformers:
 
                 if task_from.md5_file:
                     filename = task_from.md5_file.name
-                    s3_path = f"data/{pass_number}/{sv_name}/file_downlink/{ground_tag}/{filename}"
+                    s3_path = f"data/{pass_id}/{sv_name}/file_downlink/{ground_tag}/{filename}"
                     upload_md5 = Tasks.S3_File_Upload(task_from.ID, aws_bucket,
                                                       str(task_from.md5_file), s3_path, aws_region,
                                                       ground_tag)
@@ -280,7 +273,7 @@ class Task_Transformers:
                 matches = regex_filter_dir_for_files(from_task.filepath.parent, filename_filters)
                 for f in matches:
                     for post_processor in args['processor']:
-                        module = importlib.import_module(f"sunrise.PostProcessors.{post_processor}")
+                        module = importlib.import_module(f"bifrost.PostProcessors.{post_processor}")
                         post_processor = getattr(module, 'process')
 
                         task = Tasks.CSV_to_Influx(from_task.ID,
