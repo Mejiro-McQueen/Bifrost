@@ -15,6 +15,19 @@ def get_config_path():
     return Path(os.environ.get('BIFROST_SERVICES_CONFIG'))
 
 
+def get_tlm_dict_path():
+    fname = Path(os.environ.get('TLM_DICT_FILENAME'))
+    root = Path(os.environ.get('AIT_CONFIG')) # This is stupid, just use a real envar
+    tlm_dict = Path(root.parent) / fname
+    return tlm_dict
+
+
+def get_cmd_dict_path():
+    fname = Path(os.environ.get('CMD_DICT_FILENAME'))
+    root = Path(os.environ.get('AIT_CONFIG')) # This is stupid, just use a real envar
+    tlm_dict = Path(root.parent) / fname
+    return tlm_dict
+
 def load_config():
     config_path = get_config_path()
     with config_path.open() as f:

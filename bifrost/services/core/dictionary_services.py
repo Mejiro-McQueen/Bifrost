@@ -1,8 +1,9 @@
 from bifrost.common.service import Service
-from ait.core import cmd
+from ait.core import cmd, tlm
 from colorama import Fore
 from ait.core import log
 import traceback
+
 
 class Command_Dictionary_Service(Service):
     def __init__(self):
@@ -11,8 +12,11 @@ class Command_Dictionary_Service(Service):
         self.start()
 
     async def reconfigure(self, topic, message, reply):
-        await super().reconfigure(topic, message, reply)
-        self.cmd_dict = cmd.getDefaultDict()
+        if message:
+            await super().reconfigure(topic, message, reply)
+        self.cmd_dict = cmd.getDefaultDict(True)
+        self.tlm_dict = tlm.getDefaultDict(True) # Purely for reload side effect
+        log.info("Dictionaries reloaded!")
         return
 
     async def generate_command_object(self, topic, message, reply):
@@ -30,6 +34,7 @@ class Command_Dictionary_Service(Service):
             cmd_obj = self.cmd_dict.create(message)
             cmd_bytes = cmd_obj.encode()
             res = (cmd_obj.validate(), cmd_bytes)
+            log.info(f'{cmd_obj=}, {cmd_bytes.hex()=}')
         except Exception as e:
             log.error(e)
             log.error(traceback.print_exc())

@@ -22,7 +22,6 @@ class Influx(Service):
         self.pass_number = await self.config_request_pass_id()
         self.sv_name = await self.config_request_sv_name()
         await super().reconfigure(topic, message, reply)
-        print(self.pass_number, self.sv_name)
         self.setup_connection()
 
     @with_loud_exception

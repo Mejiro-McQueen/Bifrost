@@ -25,11 +25,16 @@ class Configuration(Service):
         self.reconfiguration_maps = defaultdict(dict)
         self.config_path = cfg.get_config_path()
         self.service_map = cfg.get_services()
+        self.cmd_dict_path = cfg.get_cmd_dict_path()
+        self.tlm_dict_path = cfg.get_tlm_dict_path()
         self.start()
 
     @with_loud_coroutine_exception
     async def utc_timestamp_now(self, topic, data, reply):
-        await self.publish(reply, datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S"))
+        ts = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+        if reply:
+            await self.publish(reply, ts)
+        return ts
 
     @with_loud_coroutine_exception
     async def request_downlink_path(self, topic, data, reply):
@@ -72,7 +77,9 @@ class Configuration(Service):
                 
         file_observer = inotify.adapters.Inotify()
         file_observer.add_watch(str(self.config_path))
-        print(self.config_path)
+        file_observer.add_watch(str(self.cmd_dict_path))
+        file_observer.add_watch(str(self.tlm_dict_path))
+        #print(self.config_path)
         await asyncio.sleep(self.watchdog_timer_s)
         await emit_reconfigure()
         while self.running:
@@ -83,10 +90,22 @@ class Configuration(Service):
             for event in events:
                 if not event:
                     break
-                (_, type_names, path, filename) = event
+                (_, type_names, path, _) = event
+                path = Path(path)
                 if type_names == ['IN_MODIFY']:
-                    self.service_map = cfg.get_services()
-                    await emit_reconfigure()
+                    if path == self.config_path:                    
+                        self.service_map = cfg.get_services()
+                        await emit_reconfigure()
+                    
+                    elif path == self.cmd_dict_path:
+                        log.info(f'{Fore.CYAN}{path} modified: emitting reconfig on dictionary services {Fore.RESET}')
+                        await self.publish('Bifrost.Plugins.Reconfigure.Command_Dictionary_Service', '')
+                    
+                    elif path == self.tlm_dict_path:
+                        log.info(f'{Fore.CYAN}{path} modified: emitting reconfig on dictionary services {Fore.RESET}')
+                        await self.publish('Bifrost.Plugins.Reconfigure.Telemetry_Dictionary_Service', '')
+                    #log.error(event)
+                    #log.error(f'{self.config_path}, {self.tlm_dict_path}, {self.cmd_dict_path}')
                     break
             await asyncio.sleep(self.watchdog_timer_s)
 
@@ -95,7 +114,7 @@ class Configuration(Service):
         await super().reconfigure(topic, data, reply)
         self.config_path = cfg.get_config_path()
         self.service_map = cfg.get_services()
-        self.startup_time = self.utc_timestamp_now()
+        self.startup_time = await self.utc_timestamp_now(None, None, None)
         self.pass_id = deep_get(self.key_values, 'global.mission.pass_id')
         self.data_path = Path(deep_get(self.key_values, 'global.paths.data_path'))
         self.sv_name = deep_get(self.key_values, 'instance.space_vehicle.sv_name')
@@ -104,3 +123,5 @@ class Configuration(Service):
         assert self.data_path
         self.downlink_path = Path(self.data_path / str(self.pass_id) / str(self.sv_name) / 'downlink')
         self.downlink_path.mkdir(parents=True, exist_ok=True)
+        self.cmd_dict_path = cfg.get_cmd_dict_path()
+        self.tlm_dict_path = cfg.get_tlm_dict_path()
