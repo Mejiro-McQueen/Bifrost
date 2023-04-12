@@ -34,7 +34,6 @@ class Command_Dictionary_Service(Service):
             cmd_obj = self.cmd_dict.create(message)
             cmd_bytes = cmd_obj.encode()
             res = (cmd_obj.validate(), cmd_bytes)
-            log.info(f'{cmd_obj=}, {cmd_bytes.hex()=}')
         except Exception as e:
             log.error(e)
             log.error(traceback.print_exc())
