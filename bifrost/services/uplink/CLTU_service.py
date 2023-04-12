@@ -19,6 +19,8 @@ class CLTU_Service(Service):
     @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
-        self.CLTU_start = bytes.fromhex(self.CLTU_start[2:])
-        self.CLTU_tail = bytes.fromhex(self.CLTU_tail[2:])
+        if isinstance(self.CLTU_start, str):
+            self.CLTU_start = bytes.fromhex(self.CLTU_start[2:])
+        if isinstance(self.CLTU_tail, str):
+            self.CLTU_tail = bytes.fromhex(self.CLTU_tail[2:])
         return
