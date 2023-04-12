@@ -99,7 +99,7 @@ class Subscription:
 #    @with_loud_coroutine_exception
     async def handle_client(self):
         self.reader, self.writer = await asyncio.open_connection(self.hostname, self.port)
-        log.info(f"Connection {self} is ready.")
+        log.info(f"{Fore.GREEN}Connection to {self.server_name} is ready. {Fore.RESET}")
         while self.reader or self.writer:
             if self.mode is Mode.TRANSMIT:
                 data = await self.write_queue.get()
