@@ -5,7 +5,7 @@ import json
 
 
 async def variable_messages_view():
-    async with websockets.connect("ws://localhost:8000/downlink_updates") as websocket:
+    async for websocket in websockets.connect("ws://localhost:8000/downlink_updates"):
         while (resp := await websocket.recv()):
             resp = json.loads(resp)
             resp = json.dumps(resp, indent=4)
