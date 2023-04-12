@@ -13,11 +13,8 @@ class CLTU_Service(Service):
 
     @with_loud_coroutine_exception
     async def process(self, topic, cmd_struct, reply):
-        print()
-        print(cmd_struct.payload_bytes.hex())
         cmd_struct.payload_bytes = self.CLTU_start + bytearray(cmd_struct.payload_bytes) + self.CLTU_tail
         await self.publish('Uplink.CmdMetaData.CLTU', cmd_struct)
-        print(cmd_struct.payload_bytes.hex())
         return cmd_struct
 
     @with_loud_coroutine_exception
