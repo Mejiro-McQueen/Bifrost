@@ -1,6 +1,5 @@
 from bifrost.common.service import Service
 from bifrost.common.loud_exception import with_loud_coroutine_exception, with_loud_exception
-import ast
 
 class CLTU_Service(Service):
 
