@@ -60,7 +60,9 @@ class CommandLoader():
                                           cmd_struct.payload_string)
             valid, data = response
             if valid and execute:
-                cmd_struct.payload_bytes = data
+               # cmd_struct.payload_bytes = obj.encode()
+                #self.update_tracker(cmd_struct)
+                cmd_struct.payload_bytes = ast.literal_eval(data)
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
@@ -135,6 +137,8 @@ class CommandLoader():
                 res['payload'] = str(res['payload'].hex())
             else:
                 res['payload'] = 'Error'
+            res['valid'], _ = await self.request('Bifrost.Services.Dictionary.Command.Validate',
+                                                 cmd_struct.payload_string)
         elif command_type is Command_Type.ECHO:
             res['valid'] = True
         elif command_type is Command_Type.SLEEP:

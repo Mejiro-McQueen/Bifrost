@@ -68,7 +68,7 @@ Yes, fill out the docker.env file and use the docker-compose to quick start.
 How can I visualize or analyze my telemetry?
 ===========================================
 - Bifrost primarily outputs telemetry to an Influx database. You can use the Influx visualization and notebooking capabilities, or any other software that supports influx (Grafana, etc...).
-- SunRISE has had success in ingesting telemetry from 3 space craft simultaneously on OpenMCT.
+- SunRISE has had success in ingesting telemetry from 6 space craft simultaneously on OpenMCT.
 - Bifrost reintegration with OpenMCT is comming soon and is the highest priority.
 - Bifrost also outputs telemetry to the NATS network, stdio, and a websocket via its web service; you can use these to feed your favorite data analysis software, scripts, or write a new Bifrost service.
 
