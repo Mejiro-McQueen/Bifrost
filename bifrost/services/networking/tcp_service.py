@@ -57,20 +57,21 @@ class Subscription:
         self.mode = Mode[self.mode]
         self.sent_counter = 0
         self.receive_counter = 0
-        asyncio.create_task(self.start())
-
-    @with_loud_exception
-    def __del__(self):
-        self.shutdown()
+        self.task = asyncio.create_task(self.start())
 
     @with_loud_exception
     def shutdown(self):
         """
         Shutdown and close open socket, if any.
         """
-        print(f"Shutting down {self}")
+        log.info(f"{Fore.YELLOW}Shutting down {self.server_name} {Fore.RESET}")
         if hasattr(self, 'writer'):
             self.writer.close()
+        try:
+            self.task.cancel()
+        except asyncio.CancelledError:
+            # We're fine
+            pass
 
     def status_map(self):
         m = {'topic': self.topic,
@@ -111,7 +112,7 @@ class Subscription:
                 data = await self.reader.read(self.receive_size_bytes)
                 await self.read_queue.put((self.topic, data))
                 self.receive_counter += 1
-         
+
     @with_loud_coroutine_exception
     async def start(self):
         try:
@@ -181,7 +182,6 @@ class TCP_Manager(Service):
         self.topic_subscription_map = defaultdict(list)
         self.loop.create_task(self.service_reads())
         self.configuration = defaultdict(dict)
-        self.hot = False
         self.report_time = 5
         self.loop.create_task(self.supervisor_tree())
         self.start()
@@ -213,24 +213,19 @@ class TCP_Manager(Service):
                     log.error(f"Error initializing subscriptions: {e}")
                     traceback.print_exc()
 
-        # def close_changed_connections(reconfiguration_map):
-        #     for (server_name, metadata) in reconfiguration_map.items():
-        #         print(Fore.CYAN, f"{self.topic_subscription_map=}", Fore.RESET)
-        #         subs = self.topic_subscription_map.get(metadata['topic'])
-        #         print(subs)
-        #         for sub in subs:
-        #             print("ZOING")
-        #         #     log.info(f"Shutting down {sub}")
-        #         #     sub.shutdown()
+        desired_subscription_map = {server: metadata for (server, metadata) in self.subscriptions.items()}
 
-        if self.hot:
-            return
-        subscription_map = {server: metadata for (server, metadata) in self.subscriptions.items()
-                            if not metadata == self.configuration.get(server, {})}
-        #close_changed_connections(subscription_map)
-        setup_subscriptions(subscription_map)
-        self.configuration = subscription_map
-        self.hot = True
+        for (k, v) in self.topic_subscription_map.items():
+            kill = [i for i in v if i.server_name not in desired_subscription_map]
+            preserve = [i for i in v if i not in kill]
+            for i in kill:
+                i.shutdown()
+            self.topic_subscription_map[k] = preserve
+
+        new_subscription_map = {server: metadata for (server, metadata) in self.subscriptions.items()
+                                if not metadata == self.configuration.get(server, {})}
+        setup_subscriptions(new_subscription_map)
+        self.configuration = desired_subscription_map
 
     @with_loud_coroutine_exception
     async def process(self, topic, message, reply):
