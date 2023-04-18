@@ -215,12 +215,12 @@ class Cmd(object):
         self._unrecognized = kwargs
 
     def __str__(self):
-        res = self.defn.name + " " + " ".join([str(a) for a in self.args])
-        return res
+        #res = self.defn.name + " " + " ".join([str(a) for a in self.args])
+        return repr(self)
 
     def __repr__(self):
-        x = {k.name: str(v) for (k,v) in self.arg_val_map().items()}
-        res = self.defn.name + " -> " + str(x)
+        x = {k.name: v for (k, v) in self.arg_val_map().items()}
+        res = self.defn.name + " -> args: " + str(x)
         return res
 
     def arg_val_map(self):
@@ -273,13 +273,18 @@ class Cmd(object):
 
         encode = bytearray() + opcode
         index = 0
+        x = []
         for defn in self.defn.argdefns:
+            log.debug(defn)
             if defn.fixed:
                 value = defn.value
             else:
                 value = self.args[index]
                 index += 1
-            encode += defn.encode(value)
+            if value == 0 or value == '':
+                encode += bytearray(defn._type.nbytes)
+            else:
+                encode += defn.encode(value)
         return encode
 
     def validate(self, messages=None):

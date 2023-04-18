@@ -50,25 +50,23 @@ class CommandLoader():
         self.default_uplink_path = default_uplink_path
 
     @with_loud_coroutine_exception
-    async def command_execute(self, cmd_struct: CmdMetaData, execute=True):
-        args = cmd_struct.payload_string.split(" ")
+    async def dispatch_command(self, cmd, uid, sequence, total, dry_run=False):
+        args = cmd.split(" ")
         command = args.pop(0)
-        cleaned_args = [str(i) for i in self.clean_args(args)]
+        cleaned_args = [str(i) for i in self.clean_args(args)] # TODO: clean args be doing the splits and pops?
         command = ' '.join([command, *cleaned_args])
         try:
-            response = await self.request('Bifrost.Services.Dictionary.Command.Raw',
-                                          cmd_struct.payload_string)
-            valid, data = response
-            if valid and execute:
-               # cmd_struct.payload_bytes = obj.encode()
-                #self.update_tracker(cmd_struct)
-                cmd_struct.payload_bytes = data
+            cmd_struct = await self.request('Bifrost.Services.Dictionary.Command.Generate', command)
+            cmd_struct.uid = uid
+            cmd_struct.sequence = sequence
+            cmd_struct.total = total
+            if cmd_struct.valid and not dry_run:
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
             traceback.print_exc()
-            valid = False
-        return valid
+            cmd_struct = None
+        return cmd_struct
 
     def get_tracker(self, cmd_struct):
         def new_tracker():
@@ -95,28 +93,9 @@ class CommandLoader():
 
     @with_loud_coroutine_exception
     async def upload_dir(self, path):
-        # SunRISE Special
-        p = Path(path)
-        if not list(p.glob("*uplink_metadata.json")):
-            return {'valid': False}
-        log.info(f"Uploading {p}")
-        uid = CmdMetaData.get_uid() # Huge sequences, so get a new uid
-        try:
-            res = {'valid': False}
-            return res
-            #metadata = sdlFts.send_uplink_products_from_directory(p, uid)
-            #for cmd_struct in metadata:
-            #    self.get_tracker(cmd_struct)
-            #    await self.publish('Uplink.CmdMetaData', cmd_struct)
-            #res = {'valid': True,
-            #       'uid': uid,
-            #       'execution_result': metadata[0].payload_string}
-        except Exception as e:
-            res = {'valid': False}
-            log.error(e)
-            traceback.print_exc()
-        return res
-
+        # TODO: Let file uplink services handle the heuristics, since it can be a special snowflake
+        pass
+    
     @with_loud_coroutine_exception
     async def validate(self, i):
         """Use Heuristics to perform validate"""
@@ -129,16 +108,14 @@ class CommandLoader():
             res['result'] = await self.cl_validate(Path(i))
             res['valid'] = all(i['valid'] for i in res['result'])
         elif command_type is Command_Type.COMMAND:
-            cmd_struct = CmdMetaData(i)
-            res['valid'], res['payload'] = await self.request('Bifrost.Services.Dictionary.Command.Validate',
-                                                              cmd_struct.payload_string)
+            cmd_struct = await self.request('Bifrost.Services.Dictionary.Command.Validate', i)
+            res['valid'] = cmd_struct.valid
+            res['payload'] = cmd_struct.payload_bytes
             res['command'] = cmd_struct.payload_string
             if res['payload']:
                 res['payload'] = str(res['payload'].hex())
             else:
                 res['payload'] = 'Error'
-            res['valid'], _ = await self.request('Bifrost.Services.Dictionary.Command.Validate',
-                                                 cmd_struct.payload_string)
         elif command_type is Command_Type.ECHO:
             res['valid'] = True
         elif command_type is Command_Type.SLEEP:
@@ -162,11 +139,9 @@ class CommandLoader():
         return cleaned
 
     @with_loud_coroutine_exception
-    async def execute(self, directive, cmd_struct=None):
+    async def execute(self, directive, uid=None, sequence=1, total=1):
         """ Use Heuristics to determine what kind of execution to use"""
-        if cmd_struct:
-            uid = cmd_struct.uid
-        else:
+        if not uid:
             uid = CmdMetaData.get_uid()
             
         res = {'result': None,
@@ -178,9 +153,11 @@ class CommandLoader():
         command_type = command_type_hueristic(directive)
             # uplink directory
         if command_type is Command_Type.FILE_UPLINK:
-            upload = asyncio.create_task(self.upload_dir(directive))
+            # upload = asyncio.create_task(self.upload_dir(directive))
             res['result'] = 'Upload Task Started'
-            res['valid'] = True
+            res['result'] = "Not Implemented"
+            res['valid'] = False
+            
         elif command_type is Command_Type.CL:
             # command loader script
             log.debug("Execute CL script")
@@ -190,10 +167,9 @@ class CommandLoader():
         elif command_type is Command_Type.COMMAND:
             # raw command
             log.debug("Execute raw command")
-            if not cmd_struct:
-                cmd_struct = CmdMetaData(directive)
+            cmd_struct = await self.dispatch_command(directive, uid, sequence, total)
             res['result'] = {'uid': str(cmd_struct.uid),
-                             'valid': await self.command_execute(cmd_struct)}
+                             'valid': cmd_struct.valid}
         elif Command_Type is Command_Type.INVALID:
             res['valid'] = False
             res['result'] = "Invalid Command"
@@ -218,16 +194,13 @@ class CommandLoader():
             log.info(msg)
             return [{'command': '',
                      'valid': False}]
+        sequence = 1
         res = []
-        sequence = 0
-        p = len([i for i in cmd_list if command_type_hueristic(i) is Command_Type.COMMAND])
+        uid = CmdMetaData.get_uid()
+        total = len([i for i in cmd_list if command_type_hueristic(i) is Command_Type.COMMAND])
         for i in cmd_list:
-            cmd_struct = CmdMetaData(i)
-            cmd_struct.total = p
-            cmd_struct.uid = uid
-            a = await self.execute(i, cmd_struct)
+            a = await self.execute(i, uid, sequence, total)
             sequence += 1
-            cmd_struct.sequence = sequence
             res.append(a)
         return res
 

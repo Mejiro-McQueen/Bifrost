@@ -7,9 +7,10 @@ class CmdMetaData():
     # TODO: Use VCID here instead of letting TCTF_Manager guess
     payload_string: str = None
     payload_bytes: bytes = None
+    apid: int = None
+    valid: bool = False
     sequence: int = 1
     total: int = 1
-    arg_valid: bool = True
     payload_size_valid: bool = True
     frame_size_valid: bool = True
     vcid: int = 0
@@ -23,6 +24,11 @@ class CmdMetaData():
 
     def __post_init__(self):
         self.start_time_gps = self.gps_timestamp_now()
+
+    def __repr__(self):
+        d = self.__dict__.copy()
+        d['payload_bytes'] = d['payload_bytes'].hex()
+        return str(d)
     
     @staticmethod
     def get_uid():
@@ -42,6 +48,7 @@ class CmdMetaData():
         self.start_time_gps.format = 'iso'
         self.finish_time_gps.format = 'iso'
         res['payload_string'] = self.payload_string
+        res['apid'] = str(self.apid)
         res['uid'] = str(self.uid)
         #res['payload_bytes'] = str(self.payload_bytes)
         res['vcid'] = self.vcid
@@ -50,9 +57,12 @@ class CmdMetaData():
         res['frame_size_valid'] = self.frame_size_valid
         res['sequence'] = self.sequence
         res['total'] = self.total
-        res['arg_valid'] = self.arg_valid
+        res['valid'] = self.valid
         #res['processors'] = str(self.processors)
         res['start_time_gps'] = str(self.start_time_gps)
         res['finish_time_gps'] = str(self.finish_time_gps)
         res['uplink_id'] = self.uplink_id
         return res
+
+
+# TODO: Dictionary services should be returning these.

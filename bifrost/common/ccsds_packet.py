@@ -105,27 +105,28 @@ class CCSDS_Packet():
         return str(self.__class__) + ": " + str(self.__dict__)
 
     @staticmethod
-    def encode(data,
-               PACKET_VERSION_NUMBER=0, PACKET_TYPE=1,
-               SEC_HDR_FLAG=0, APPLICATION_PROCESS_IDENTIFIER=0,
-               SEQUENCE_FLAGS=0, PACKET_SEQUENCE_OR_NAME=0):
+    def encode(data, application_process_identifier,
+               packet_version_number=0,
+               packet_type=1, sec_hdr_flag=0,
+               sequence_flags=0, packet_sequence_or_name=0):
         
         packet_version_number = BitArray(bin=format(0, '03b')) #  Version 1 CCSDS Packet
-        packet_type = BitArray(bin=format(1, '01b'))  # Telecommand; We don't generate telemetry or reports.
+        packet_type = BitArray(bin=format(packet_type, '01b'))  # Telecommand; We don't generate telemetry or reports.
         secondary_header_flag = BitArray(bin=format(0, '01b')) # No Secondary header for now
-        apid = BitArray(bin=format(0, '011b'))
+        apid = BitArray(bin=format(int(application_process_identifier[2:]), '011b'))
         sequence_flags = BitArray(bin='11')
-        if isinstance(PACKET_SEQUENCE_OR_NAME, str):
-            packet_sequence_count = BitArray(bytes=PACKET_SEQUENCE_OR_NAME.encode('ASCII'))
+        if isinstance(packet_sequence_or_name, str):
+            # TODO: Truncate to 14b
+            packet_sequence_count = BitArray(bytes=packet_sequence_or_name.encode('ASCII'))
         else:
-            packet_sequence_count = BitArray(bin=format(PACKET_SEQUENCE_OR_NAME, '014b'))
+            packet_sequence_count = BitArray(bin=format(packet_sequence_or_name, '014b'))
 
         packet_length = BitArray(bin=format(len(data)-1, '016b'))
-        data = BitArray(data)
-            
-        packet = sum([packet_version_number, packet_type, secondary_header_flag,
-                      apid, sequence_flags, packet_sequence_count, packet_length, data])
+        data = BitArray(bytes=data)
 
+        packet = sum([packet_version_number, packet_type, secondary_header_flag,
+                     apid, sequence_flags, packet_sequence_count, packet_length, data])
+        print(len(packet))
         return packet.bytes
 
         # TODO Handle packet segmentation

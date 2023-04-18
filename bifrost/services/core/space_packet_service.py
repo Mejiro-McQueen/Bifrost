@@ -1,7 +1,6 @@
 from bifrost.common.service import Service
 from bifrost.common.loud_exception import with_loud_coroutine_exception, with_loud_exception
 from bifrost.common.ccsds_packet import Packet_State, CCSDS_Packet
-from bifrost.services.core.commanding.cmd_meta_data import CmdMetaData
 
 class Space_Packet_Service(Service):
     @with_loud_exception
@@ -11,7 +10,7 @@ class Space_Packet_Service(Service):
 
     @with_loud_coroutine_exception
     async def packetize_cmd_metadata(self, topic, data, reply):
-        payload = CCSDS_Packet.encode(data.payload_bytes)
+        payload = CCSDS_Packet.encode(data.payload_bytes, data.apid)
         data.payload_bytes = payload
         if reply:
             await self.publish(reply, data)
