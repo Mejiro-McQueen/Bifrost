@@ -6,18 +6,18 @@ import json
 
 
 async def telemetry_view():
-    # async for websocket in websockets.connect("ws://localhost:8000/command_loader"):
-    #     msg = ("CL.Execute", "FSS_RESTART_CFS")
+#     async for websocket in websockets.connect("ws://localhost:8000/command_loader"):
+#         msg = ("CL.Execute", "FSS_START_CFS")
 
-    #     msg = json.dumps({'topic': msg[0],
-    #                       'message': msg[1]})
-    #     await websocket.send(msg)
-    #     resp = await websocket.recv()
-    #     resp = json.loads(resp)
-    #     resp = json.dumps(resp, indent=4)
-    #     print(resp)
-    #     print("\n")
-    #     break
+#         msg = json.dumps({'topic': msg[0],
+#                           'message': msg[1]})
+#         await websocket.send(msg)
+#         resp = await websocket.recv()
+#         resp = json.loads(resp)
+#         resp = json.dumps(resp, indent=4)
+#         print(resp)
+#         print("\n")
+#         break
 
     # async for websocket in websockets.connect("ws://localhost:8000/service_directive"):
     #     msg = json.dumps({'topic': 'Bifrost.Directive.TCP_Manager.Disconnect',
@@ -59,6 +59,18 @@ async def telemetry_view():
     #     print(resp)
     #     print("\n")
     #     break
+
+
+    async for websocket in websockets.connect("ws://localhost:8000/service_directive"):
+        msg = json.dumps({'topic': 'Bifrost.Directive.NASA_FSS_Service.Command',
+                          'message': 'FSS_START_CFS'})
+        await websocket.send(msg)
+        resp = await websocket.recv()
+        resp = json.loads(resp)
+        resp = json.dumps(resp, indent=4)
+        print(resp)
+        print("\n")
+        break
 
     async for websocket in websockets.connect("ws://localhost:8000/service_directive"):
         msg = json.dumps({'topic': 'Bifrost.Directive.TCP_Manager.Reconnect',

@@ -67,6 +67,9 @@ class Subscription:
         log.info(f"{Fore.YELLOW}Shutting down {self.server_name} {Fore.RESET}")
         if hasattr(self, 'writer'):
             self.writer.close()
+            self.writer = None
+        if hasattr(self, 'reader'):
+            self.reader = None
         try:
             self.task.cancel()
         except asyncio.CancelledError:

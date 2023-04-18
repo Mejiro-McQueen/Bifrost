@@ -262,18 +262,8 @@ class Cmd(object):
         """The command argument definitions."""
         return self.defn.argdefns
 
-    def encode(self, pad=0):  # Padding values here is retarded
-        """Encodes this AIT command to binary.
-
-        # If pad is specified, it indicates the maximum size of the encoded
-        # command in bytes.  If the encoded command is less than pad, the
-        # remaining bytes are set to zero.
-
-        # Commands sent to ISS payloads over 1553 are limited to 64 words
-        # (128 bytes) with 11 words (22 bytes) of CCSDS overhead (SSP
-        # 52050J, Section 3.2.3.4).  This leaves 53 words (106 bytes) for
-        # the command itself.
-        """
+    def encode(self):
+        # TODO: Specify Opcode Size
         try:
             opcode = struct.pack(">H", self.defn.opcode)
         except struct.error:
@@ -281,24 +271,16 @@ class Cmd(object):
             msg += "does not fit in an unsigned int. Check your Cmd Dictionary."
             raise ValueError(msg)
 
-        offset = len(opcode)
-        size = max(offset + self.defn.argsize, pad)
-        encoded = bytearray(size)
-
-        encoded[0:offset] = opcode
-        encoded[offset] = self.defn.argsize
-        offset += 1
+        encode = bytearray() + opcode
         index = 0
-
         for defn in self.defn.argdefns:
             if defn.fixed:
                 value = defn.value
             else:
                 value = self.args[index]
                 index += 1
-            encoded[defn.slice(offset)] = defn.encode(value)
-
-        return encoded
+            encode += defn.encode(value)
+        return encode
 
     def validate(self, messages=None):
         """Returns True if the given Command is valid, False otherwise.
@@ -421,7 +403,7 @@ class CmdDefn(json.SlotSerializer, object):
         return valid
 
 
-class CmdDict(dict):
+class CmdDict(dict): # Daily reminder that this only runs if the pkl does not exist
     """CmdDict
 
     Command Dictionaries provide a Python dictionary (i.e. hashtable)
@@ -440,7 +422,7 @@ class CmdDict(dict):
             self.load(args[0])
         else:
             dict.__init__(self, *args, **kwargs)
-
+            
     def add(self, defn):
         """Adds the given Command Definition to this Command Dictionary."""
         if defn.name not in self:
@@ -450,7 +432,7 @@ class CmdDict(dict):
             log.error(msg)
             raise util.YAMLError(msg)
 
-        if defn._opcode not in self.opcodes:
+        if defn._opcode not in self.opcodes or True:  # Work around for shared opcodes (e.g. NASA cFS)
             self.opcodes[defn._opcode] = defn
         else:
             msg = "Duplicate Command opcode '%s'" % defn._opcode
@@ -486,7 +468,7 @@ class CmdDict(dict):
         r = createCmd(defn, *args, **kwargs)
         return r
 
-    def decode(self, bytes):
+    def decode(self, bytes): # Guaranteed not to work due to shared opcodes
         """Decodes the given bytes according to this AIT Command
         Definition.
         """

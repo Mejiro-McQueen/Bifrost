@@ -35,6 +35,7 @@ class Command_Dictionary_Service(Service):
 
     @with_loud_coroutine_exception
     async def generate_command_raw(self, topic, message, reply):
+        # TODO: AIT Enforces: Unique CMD Opcodes, Opcodes must fit in uint. That's none of their business.
         try:
             cmd_obj = self.cmd_dict.create(message)
             cmd_bytes = cmd_obj.encode()

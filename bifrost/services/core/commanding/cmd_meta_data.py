@@ -4,6 +4,7 @@ from astropy.time import Time
 
 @dataclass
 class CmdMetaData():
+    # TODO: Use VCID here instead of letting TCTF_Manager guess
     payload_string: str = None
     payload_bytes: bytes = None
     sequence: int = 1
