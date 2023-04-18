@@ -193,27 +193,31 @@ class TCP_Manager(Service):
             await self.stream(topic, msg)
 
     @with_loud_exception
+    def setup_subscription(self, subscription_map):
+        metadata = subscription_map
+        topic = metadata['topic']
+        server_name = metadata['server_name']
+        try:
+            sub = Subscription(server_name=server_name,
+                               topic=topic,
+                               hostname=metadata['hostname'],
+                               port=metadata['port'],
+                               mode=metadata['mode'],
+                               timeout_seconds=metadata['timeout_seconds'],
+                               read_queue=self.read_queue,
+                               write_queue=asyncio.Queue())
+            self.topic_subscription_map[topic].append(sub)
+            self.configuration[server_name] = metadata
+        except Exception as e:
+            log.error(f"Error initializing subscriptions: {e}")
+            traceback.print_exc()
+
+    @with_loud_exception
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
-
-        def setup_subscriptions(subscription_map):
-            for (server_name, metadata) in subscription_map.items():
-                topic = metadata['topic']
-                try:
-                    sub = Subscription(server_name=server_name,
-                                       topic=topic,
-                                       hostname=metadata['hostname'],
-                                       port=metadata['port'],
-                                       mode=metadata['mode'],
-                                       timeout_seconds=metadata['timeout_seconds'],
-                                       read_queue=self.read_queue,
-                                       write_queue=asyncio.Queue())
-                    self.topic_subscription_map[topic].append(sub)
-                except Exception as e:
-                    log.error(f"Error initializing subscriptions: {e}")
-                    traceback.print_exc()
-
         desired_subscription_map = {server: metadata for (server, metadata) in self.subscriptions.items()}
+        for (server_name, metadata) in desired_subscription_map.items():
+            metadata['server_name'] = server_name
 
         for (k, v) in self.topic_subscription_map.items():
             kill = [i for i in v if i.server_name not in desired_subscription_map]
@@ -224,8 +228,25 @@ class TCP_Manager(Service):
 
         new_subscription_map = {server: metadata for (server, metadata) in self.subscriptions.items()
                                 if not metadata == self.configuration.get(server, {})}
-        setup_subscriptions(new_subscription_map)
+
+        for (server_name, metadata) in new_subscription_map.items():
+            self.setup_subscription(metadata)
         self.configuration = desired_subscription_map
+
+    @with_loud_exception
+    def disconnect_host(self, server_name):
+        # Maybe easier to internally adjust config and force a reconfig?
+        found = False
+        for (k, v) in self.topic_subscription_map.items():
+            for i in v:
+                if i.server_name == server_name:
+                    found = True
+                    i.shutdown()
+                    v.remove(i)
+                    break
+
+        self.configuration.pop(server_name, None)
+        return found
 
     @with_loud_coroutine_exception
     async def process(self, topic, message, reply):
@@ -250,7 +271,41 @@ class TCP_Manager(Service):
         if isinstance(message, CmdMetaData):
             await self.publish('Uplink.CmdMetaData.Complete', message)
 
-#        log.info(message)
+    @with_loud_coroutine_exception
+    async def directive_reconnect(self, topic, message, reply):
+        config = self.configuration.get(message, None)
+        if not config:
+            data = 'Error, Could not find config for host: {message}'
+            await self.publish(reply, data)
+            return
+
+        await self.directive_disconnect(topic, message, None)
+
+        self.setup_subscription(config)
+        data = f'Ok, connected {config["server_name"]}'
+        await self.publish(reply, data)
+
+    @with_loud_coroutine_exception
+    async def directive_disconnect(self, topic, message, reply):
+        if self.disconnect_host(message):
+            data = f'OK, disconnect host: {message}'
+        else:
+            data = f'Could not find host {message}'
+        await self.publish(reply, data)
+
+    @with_loud_coroutine_exception
+    async def directive_connect(self, topic, message, reply):
+        try:
+            self.setup_subscription(message)
+            data = f'OK, connect to {message["server_name"]}'
+        except Exception as e:
+            data = f'Error, {e}'
+        await self.publish(reply, data)
+
+    @with_loud_coroutine_exception
+    async def directive_config(self, topic, message, reply):
+        data = self.configuration
+        await self.publish(reply, data)
 
     @with_loud_coroutine_exception
     async def supervisor_tree(self, msg=None):

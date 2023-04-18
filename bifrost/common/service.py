@@ -200,18 +200,20 @@ class Service():
         data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
         await self.js.publish(subject, data)
 
-    async def publish(self, topic_pattern, data, reply=''):
+    async def publish(self, subject, data, reply=''):
         try:
             data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
-            await self.nc.publish(topic_pattern, data, reply)
+            await self.nc.publish(subject, data, reply)
             await self.nc.flush()
         except nats.errors.BadSubjectError:
-            log.error(f'The pattern: "{topic_pattern}" is an invalid NATS subject')
+            log.error(f'The pattern: "{subject}" is an invalid NATS subject')
         except TypeError as e:
             if 'pickle' in str(e):
-                log.error(f"Could not pickle {data} for {topic_pattern}: {e}")
+                log.error(f"Could not pickle {data} for {subject}: {e}")
+        except Exception as e:
+            log.error(e)
 
-    async def request(self, subject, data=None):
+    async def request(self, subject, data=''):
         inbox = self.nc.new_inbox()
         sub = await self.nc.subscribe(inbox)
         await self.publish(subject, data, inbox)
@@ -225,6 +227,7 @@ class Service():
             return msg
         except EOFError:
             log.error(f"Request on {subject} for {data} returned an empty reply.")
+            # Should check if anyone is actually listenint to the subject
         except Exception as e:
             log.error(e)
 

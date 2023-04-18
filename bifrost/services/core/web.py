@@ -181,11 +181,12 @@ class Web_Server(Service):
         try:
             await websocket.accept()
             m = await websocket.receive_json()
-            for i in m:
-                directive = i['topic']
-                body = i['message']
-                await self.publish(directive, body)
-                await websocket.send_json(f"OK, {directive}")
+            directive = m['topic']
+            message = m['message']
+            data = await self.request(directive, message)
+            d = {'topic': f'{directive}.Receipt',
+                 'message': data}
+            await websocket.send_json(d)
         except WebSocketDisconnect:
             pass
 
