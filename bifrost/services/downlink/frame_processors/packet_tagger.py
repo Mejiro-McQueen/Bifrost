@@ -32,7 +32,7 @@ class CCSDS_Packet_Tagger:
 
                 # Decoding
                 apid = packet.primary_header['APPLICATION_PROCESS_IDENTIFIER']
-                packet_def = tlm_dict.lookup_by_opcode(apid)  # Call to AIT
+                packet_def = tlm_dict.lookup_by_opcode(apid)  # Call to AIT, need to find a way to make call to dict service
                 if not packet_def:
                     log.error(f"Could not lookup apid/opcode/{apid=}, {self.processor_name=}, {self.vcid=}, {packet=}")
                     continue

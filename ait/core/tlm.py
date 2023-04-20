@@ -615,6 +615,9 @@ class Packet:
 
             elif isinstance(val, bytes):
                 val = val.decode("ascii")
+                val = val.strip().replace('\x00', '')
+                if not val:
+                    val = None
 
             elif val is None:
                 val = "None"
@@ -627,7 +630,9 @@ class Packet:
 
         except Exception as e:
             log.error(f"REEEEEEEEE {e}")
-            exit()
+            log.error("Now exiting until your dictionary is fixed.")
+            log.error(val)
+            exit(-1)
 
         #log.error(f"Fieldname {field_name} Was {a} is now {val} with type {type(val)}")
         return val

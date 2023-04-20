@@ -28,7 +28,6 @@ class Command_Dictionary_Service(Service):
         # TODO: AIT Enforces: Unique CMD Opcodes, Opcodes must fit in uint. That's none of their business.
         try:
             cmd_obj = self.cmd_dict.create(message)
-            print(cmd_obj, type(cmd_obj))
             cmd_bytes = cmd_obj.encode()
             apid = str(hex(cmd_obj.opcode))
             res = (cmd_obj.validate(), cmd_bytes)
@@ -39,7 +38,6 @@ class Command_Dictionary_Service(Service):
             res = CmdMetaData(message, bytes(''))
         if reply:
             await self.publish(reply, res)
-        print(res)
         return res
 
     @with_loud_coroutine_exception

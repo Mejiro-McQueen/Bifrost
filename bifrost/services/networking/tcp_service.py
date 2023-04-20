@@ -126,11 +126,11 @@ class Subscription:
                 log.info("Starting server on {self.hostname}:{self.port}")
                 await self.handle_server()
         except ConnectionRefusedError:
-            log.error(f"Connection was refused for {self}.")
+            log.error(f"Connection was refused for {self.hostname}:{self.port}.")
             await asyncio.sleep(5)
             await self.start()
         except socket.error:
-            log.error(f'Could not establish connection for {self}')
+            log.error(f'Could not establish connection for on {self.hostname}:{self.port}')
             await asyncio.sleep(5)
             await self.start()
         except Exception as e:
