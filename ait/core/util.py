@@ -303,9 +303,13 @@ def getDefaultDict(modname, config_key, loader, reload=False, filename=None):  #
     """
     module = sys.modules[modname]
     default = getattr(module, "DefaultDict", None)
+    #if filename is None:
+    #    filename = os.path.expandvars(ait.config.get(f"{config_key}.filename", None))
+    filename = os.path.expandvars(ait.config.get(f"{config_key}.filename", None))
+    setattr(module, "DefaultDict", default)  # noqa
 
-    if filename is None:
-        filename = ait.config.get(f"{config_key}.filename", None)
+    log.debug(f'{modname=} {config_key=} {loader=} {filename=}')
+    return loader(filename) # Just bypass this entire disaster.
 
     if filename is not None and (default is None or reload is True):
         try:

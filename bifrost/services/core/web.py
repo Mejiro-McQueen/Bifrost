@@ -24,7 +24,7 @@ class Web_Server(Service):
 
     @with_loud_coroutine_exception
     async def start_server(self):
-        config = uvicorn.Config(self.app, port=8000, host='0.0.0.0', log_level="error")
+        config = uvicorn.Config(self.app, port=8000, host='bifrost', log_level="error")
         server = uvicorn.Server(config)
         log.info(f"{Fore.CYAN}Bifrost Web Service Now serving on {config.host}:{config.port}{Fore.RESET}")
         await server.serve()
