@@ -16,16 +16,12 @@ def get_config_path():
 
 
 def get_tlm_dict_path():
-    fname = Path(os.environ.get('TLM_DICT_FILENAME'))
-    root = Path(os.environ.get('AIT_CONFIG')) # This is stupid, just use a real envar
-    tlm_dict = Path(root.parent) / fname
+    tlm_dict = Path(os.environ.get('TLM_DICT_FILEPATH'))
     return tlm_dict
 
 
 def get_cmd_dict_path():
-    fname = Path(os.environ.get('CMD_DICT_FILENAME'))
-    root = Path(os.environ.get('AIT_CONFIG')) # This is stupid, just use a real envar
-    tlm_dict = Path(root.parent) / fname
+    tlm_dict = Path(os.environ.get('CMD_DICT_FILEPATH'))
     return tlm_dict
 
 def load_config():

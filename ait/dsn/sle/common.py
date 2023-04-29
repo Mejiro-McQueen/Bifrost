@@ -114,7 +114,7 @@ class SLE(object):
                                             kwargs.get('responder_id', 'SSE'))
         self._initiator_pw = ait.config.get('dsn.sle.initiator_pw',
                                             kwargs.get('initiator_pw', None))
-        self._responder_pw = ait.config.get('dsn.sle.responder__password',
+        self._responder_pw = ait.config.get('dsn.sle.responder_pw',
                                             kwargs.get('responder_password', None))
         self._responder_port = ait.config.get('dsn.sle.responder_port',
                                               kwargs.get('responder_port', 'default'))
