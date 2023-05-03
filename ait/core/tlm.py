@@ -751,6 +751,7 @@ class PacketDefinition(json.SlotSerializer):
         "name",
         "derivations",
         "derivationmap",
+        "subsystem",
     ]
 
     def __init__(self, *args, **kwargs):
@@ -758,6 +759,9 @@ class PacketDefinition(json.SlotSerializer):
         for slot in PacketDefinition.__slots__:
             name = slot[1:] if slot.startswith("_") else slot
             setattr(self, slot, kwargs.get(name, None))
+
+        if not self.subsystem:
+            self.subsystem = 'Unknown Subsystem'
 
         if self.ccsds:
             import ait.core.ccsds as ccsds
@@ -894,7 +898,7 @@ class PacketDefinition(json.SlotSerializer):
         return valid
 
     def toJSON(self, derivations=False):  # noqa
-        slots = ["name", "desc", "constants", "functions", "history", "uid"]
+        slots = ["name", "desc", "constants", "functions", "history", "uid", "subsystem"]
 
         if self.ccsds is not None:
             slots += "ccsds"

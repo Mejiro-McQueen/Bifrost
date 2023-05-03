@@ -7,8 +7,8 @@ RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Set users, groups, directories 
-RUN useradd -ms /bin/bash -u 2001 bifrost
-RUN mkdir /gds /app && chown -R bifrost /app /gds $VIRTUAL_ENV
+RUN useradd -ms /bin/bash -u 2001 bifrost && \
+	mkdir /gds /app && chown -R bifrost /app /gds $VIRTUAL_ENV
 
 USER bifrost
 

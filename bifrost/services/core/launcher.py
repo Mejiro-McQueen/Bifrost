@@ -40,13 +40,13 @@ class Launcher(Service):
             with concurrent.futures.ProcessPoolExecutor(max_workers) as executor:
                 for (plugin_class, metadata) in service_metadata_dict.items():
                     class_name = Path(plugin_class).suffix[1:]
-                    if metadata.get('disabled', False):
+                    if metadata.get('disabled', False) == True:
                         print(f"{Fore.RED}Bifrost Launch Service: {class_name} is disabled.{Fore.RESET}")
                         continue
                     elif class_name in self.process_map_to_pid:
                         continue
                     else:
-                        print(f"{Fore.GREEN}Bifrost Launch Service: Starting service {class_name} {Fore.RESET}")
+                        print(f"{Fore.GREEN}Bifrost Launch Service: {class_name} is starting.{Fore.RESET}")
                         try:
                             module = import_module(Path(plugin_class).stem)
                             class_type = getattr(module, class_name)
