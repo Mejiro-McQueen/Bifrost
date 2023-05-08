@@ -49,7 +49,7 @@ What is Bifrost _not_?
 - Bifrost is not an official product, supported, or endorsed by Ammos Instrumentation Toolkit (AIT), Advanced Multi-Mission Operations System (AMMOS), Jet Propulsion Laboraty (JPL), Caltech, The National Aeronautics and Space Administration (NASA), or any of their affiliates and contributors; You are completely dependant on yourself and the independant FOSS contributors to this repository for support. 
 - Bifrost is not an out of the box solution for every mission. Our intention is to provide Cubesat missions a way of reusing software developed by other cubesat missions and NASA projects. To this end, many of the Bifrost libraries are not fully CCSDS compliant, bug free, or feature complete. You should expect to invest a considerate amount of time and resources into evaluating/developing Bifrost services that meet your missions' needs.
 - Bifrost is not high performance. Due to historical reasons, many (all) of Bifrost services and libraries are written in python 3. Bifrost is a collection of services on the NATS network that run as independent processes. Each python process uses python's built in asyncio library to provide concurency within the process.
-- Bifrost is not a data visualization or analysis suite (See the Operations section for tips) (Integration with OpenMCT comming soon).
+- Bifrost is not a data visualization or analysis suite, but provides capabilities to intergrate with them (See the Operations section for tips).
 
 What is AIT?
 ============
@@ -80,8 +80,15 @@ Unlikely! However, it shouldn't be too difficult to adapt it.
 How can I visualize or analyze my telemetry?
 ===========================================
 
-- Bifrost outputs telemetry to an Influx database. You can use the Influx visualization and notebooking capabilities, or any other software that supports influx (Grafana, etc...). Use the docker-compose file in the Bifrost NASA cFS Expansion to quickly setup and integrate an InfluxDB instance.
-- Bifrost reintegration with OpenMCT is comming soon and is the highest priority.
+- Bifrost outputs telemetry to an Influx database. You can use the Influx visualization and notebooking capabilities, or any other software that supports influx (Grafana, etc...), (See the Bifrost NASA cFS Expansion docker compose file to quickly setup and integrate an InfluxDB instance: https://github.com/Mejiro-McQueen/Bifrost-NASA-cFS)
+- Bifrost is partially integrated with OpenMCT. Use the javascript files as a baseline for your mission adaptation (See the Bifrost NASA cFS Expansion docker compose file to quickly setup and integrate an OpenMCT instance: https://github.com/Mejiro-McQueen/Bifrost-NASA-cFS):
+    - realtime telemetry: :heavy_check_mark:
+    - influx historical telemetry: :negative_squared_cross_mark:
+    - station monitor data: :negative_squared_cross_mark:
+    - bifrost messages: :negative_squared_cross_mark:
+    - bifrost directives: :negative_squared_cross_mark:
+    - bifrost monitors: :negative_squared_cross_mark:
+    
 - Bifrost also outputs telemetry to the NATS network, stdio, and a websocket via its web service; you can use these to feed your favorite data analysis software, scripts, or write a new Bifrost service.
   
 Tips
