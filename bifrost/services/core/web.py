@@ -4,6 +4,8 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 
 from bifrost.common.loud_exception import with_loud_coroutine_exception, with_loud_exception
 
@@ -32,6 +34,7 @@ class Web_Server(Service):
     @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
+        self.middleware = [Middleware(CORSMiddleware, allow_origins=['*'])] # Don't do this!
         self.app = Starlette(debug=True,
                              routes=[
                                  Mount('/test', app=StaticFiles(directory=self.index, html=True), name='static'),
@@ -43,11 +46,12 @@ class Web_Server(Service):
                                  WebSocketRoute('/subscribe', endpoint=self.ws_subscribe),
                                  WebSocketRoute("/service_directive", self.ws_service_directive),
                                  Route('/', self.homepage),
-                                 Route("/dict/{dict_type:str}", self.cmd_dict),
+                                 Route("/dict/{dict_type:str}", self.dict),
                                  Route("/sle/raf/{directive:str}", self.sle_raf_directive),
                                  Route("/sle/cltu/{directive:str}", self.sle_cltu_directive),
                                  Route("/config", self.config_request),
-                             ])
+                             ],
+                             middleware=self.middleware)
         self.server_task = self.loop.create_task(self.start_server())
 
     @with_loud_coroutine_exception

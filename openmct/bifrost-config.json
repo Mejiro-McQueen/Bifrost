@@ -1,0 +1,8 @@
+{
+	"debug": true,
+	"bifrost_endpoints": {
+		"cmd_dictionary": "http://localhost:8000/dict/cmd",
+		"tlm_dictionary": "http://localhost:8000/dict/tlm",
+		"realtime_telemetry": "ws://localhost:8000/dict/telemetry"
+	}
+}

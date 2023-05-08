@@ -6,9 +6,9 @@ import json
 
 
 async def telemetry_view():
-    # async for websocket in websockets.connect("ws://localhost:8000/service_directive"):
+    # async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
     #     message = {'topic': 'Uplink.CmdMetaData.CLTU',
-    #                'server_name': 'FSW_SIM_Uplink',
+    #                'server_name': 'CMD_FSW_SIM',
     #                'hostname': 'some_ip',
     #                'port': 666,
     #                'mode': 'TRANSMIT',
@@ -25,7 +25,7 @@ async def telemetry_view():
     #     print("\n")
     #     break
 
-    async for websocket in websockets.connect("ws://localhost:8000/service_directive"):
+    async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
         msg = json.dumps({'topic': 'Bifrost.Directive.NASA_FSS_Service.Command',
                           'message': 'FSS_START_CFS'})
         await websocket.send(msg)
@@ -36,10 +36,10 @@ async def telemetry_view():
         print("\n")
         break
 
-    async for websocket in websockets.connect("ws://localhost:8000/service_directive"):
+    async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
         await asyncio.sleep(5)
         msg = json.dumps({'topic': 'Bifrost.Directive.TCP_Manager.Reconnect',
-                          'message': 'FSW_SIM_Uplink'})
+                          'message': 'CMD_FSW_SIM'})
         await websocket.send(msg)
         resp = await websocket.recv()
         resp = json.loads(resp)
@@ -48,7 +48,7 @@ async def telemetry_view():
         print("\n")
         break
 
-    async for websocket in websockets.connect("ws://localhost:8000/command_loader"):
+    async for websocket in websockets.connect("ws://bifrost:8000/command_loader"):
         msg = json.dumps({'topic': 'CL.Execute',
                           'message': 'CFS_TO_ENABLE_OUTPUT'})
         await websocket.send(msg)
@@ -59,10 +59,10 @@ async def telemetry_view():
         print("\n")
         break
 
-    async for websocket in websockets.connect("ws://localhost:8000/service_directive"):
+    async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
         await asyncio.sleep(5)
         msg = json.dumps({'topic': 'Bifrost.Directive.TCP_Manager.Reconnect',
-                          'message': 'FSW_SIM_Uplink'})
+                          'message': 'CMD_FSW_SIM'})
         await websocket.send(msg)
         resp = await websocket.recv()
         resp = json.loads(resp)

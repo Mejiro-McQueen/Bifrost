@@ -80,7 +80,7 @@ class Configuration(Service):
         file_observer.add_watch(str(self.cmd_dict_path))
         file_observer.add_watch(str(self.tlm_dict_path))
         #print(self.config_path)
-        await asyncio.sleep(self.watchdog_timer_s)
+        await asyncio.sleep(5) # TODO: Fix race condition, see notes.
         await emit_reconfigure()
         while self.running:
             #emit_reconfigure()
