@@ -22,6 +22,7 @@ class Web_Server(Service):
     @with_loud_exception
     def __init__(self):
         super().__init__()
+        self.index = './gjallarhorn/simple_web_prototype/'
         self.start()
 
     @with_loud_coroutine_exception
@@ -37,7 +38,6 @@ class Web_Server(Service):
         self.middleware = [Middleware(CORSMiddleware, allow_origins=['*'])] # Don't do this!
         self.app = Starlette(debug=True,
                              routes=[
-                                 Mount('/test', app=StaticFiles(directory=self.index, html=True), name='static'),
                                  WebSocketRoute("/telemetry", endpoint=self.ws_telemetry),
                                  WebSocketRoute("/command_loader", endpoint=self.ws_command_loader),
                                  WebSocketRoute('/variable_messages', endpoint=self.ws_variable_messages),
@@ -45,17 +45,18 @@ class Web_Server(Service):
                                  WebSocketRoute('/downlink_updates', endpoint=self.ws_downlink_updates),
                                  WebSocketRoute('/subscribe', endpoint=self.ws_subscribe),
                                  WebSocketRoute("/service_directive", self.ws_service_directive),
-                                 Route('/', self.homepage),
                                  Route("/dict/{dict_type:str}", self.dict),
                                  Route("/sle/raf/{directive:str}", self.sle_raf_directive),
                                  Route("/sle/cltu/{directive:str}", self.sle_cltu_directive),
                                  Route("/config", self.config_request),
+                                 Route("/status", self.status),
+                                 Mount('/', app=StaticFiles(directory=self.index, html=True), name='static'),
                              ],
                              middleware=self.middleware)
         self.server_task = self.loop.create_task(self.start_server())
 
     @with_loud_coroutine_exception
-    async def homepage(self, request):
+    async def status(self, request):
         return JSONResponse(self.name)
 
     @with_loud_coroutine_exception
