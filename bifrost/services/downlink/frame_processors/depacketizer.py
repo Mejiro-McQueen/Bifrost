@@ -18,20 +18,21 @@ class Frame_Depacketizer():
 
     @with_loud_exception
     def __call__(self, tagged_frame: TaggedFrame):
-        if tagged_frame.corrupt_frame:
+        if tagged_frame['corrupt_frame']:
             log.warn(f"{self.processor_name} Dropping corrupt frame.")
             self.deframer = self.deframer_type(self.secondary_header_length)
             return []
         
-        if self.enforce_sequence and tagged_frame.out_of_sequence:
-            log.warn(f"{self.processor_name} Dropping out of sequence frame on VCID {tagged_frame.vcid}")
+        if self.enforce_sequence and tagged_frame['out_of_sequence']:
+            log.warn(f"{self.processor_name} Dropping out of sequence frame on VCID {tagged_frame['vcid']}")
             log.warn(f"{tagged_frame}")
             self.deframer = self.deframer_type(self.secondary_header_length)
             return []
 
         try:
-            packets = self.deframer.depacketize(tagged_frame.frame)
-            return packets
+            data = bytearray.fromhex(tagged_frame['frame'])
+            packets = self.deframer.depacketize(data)
+            return packets 
         except struct.error as e:
             log.error(f"Could not process frames: {e}")
             return []

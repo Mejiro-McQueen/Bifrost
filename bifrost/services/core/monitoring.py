@@ -16,11 +16,14 @@ class Monitor(Service):
     async def process(self, topic, data, reply):
         self.data_map[topic] = data
 
-    @with_loud_exception
+    @with_loud_coroutine_exception
     async def periodic_report(self):
         while True:
-            self.disk_writer.write_to_disk(self.data_map)
             await asyncio.sleep(self.report_time)
+            if not self.disk_writer:
+                return
+            self.disk_writer.write_to_disk(self.data_map)
+            
 
     @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):

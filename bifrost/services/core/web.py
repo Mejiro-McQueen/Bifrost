@@ -11,7 +11,7 @@ from bifrost.common.loud_exception import with_loud_coroutine_exception, with_lo
 
 from bifrost.common.service import Service
 import uvicorn
-import pickle
+import msgpack
 import ait.core.tlm
 import ait.core.cmd
 import ait.core.log as log
@@ -68,7 +68,7 @@ class Web_Server(Service):
                 topic_request = req['topic']
                 sub = await self.nc.subscribe(topic_request)
                 async for msg in sub.messages:
-                    d = pickle.loads(msg.data)
+                    d = msgpack.unpackb(msg.data)
                     m = {'subject': msg.subject,
                          'message': d}
                     await websocket.send_json(m)
@@ -88,7 +88,7 @@ class Web_Server(Service):
                 subscriptions = ait.core.tlm.getDefaultDict()
             sub = await self.nc.subscribe(self.telemetry_stream_pattern)
             async for msg in sub.messages:
-                d = pickle.loads(msg.data)
+                d = msgpack.unpackb(msg.data)
                 if d['packet_name'] in subscriptions:
                     await websocket.send_json(d)
         except WebSocketDisconnect:
@@ -142,7 +142,7 @@ class Web_Server(Service):
             while True:
                 sub = await self.nc.subscribe('Bifrost.Messages.>')
                 async for msg in sub.messages:
-                    d = pickle.loads(msg.data)
+                    d = msgpack.unpackb(msg.data)
                     m = {'topic': msg.subject,
                          'message': d}
                     await websocket.send_json(m)
@@ -158,7 +158,7 @@ class Web_Server(Service):
             while True:
                 sub = await self.nc.subscribe('Bifrost.Monitors.>')
                 async for msg in sub.messages:
-                    d = pickle.loads(msg.data)
+                    d = msgpack.unpackb(msg.data)
                     m = {'topic': msg.subject,
                          'message': d}
                     await websocket.send_json(m)
@@ -202,7 +202,7 @@ class Web_Server(Service):
             while True:
                 sub = await self.nc.subscribe(self.downlink_update_pattern)
                 async for msg in sub.messages:
-                    d = pickle.loads(msg.data)
+                    d = msgpack.unpackb(msg.data)
                     m = {'topic': msg.subject,
                          'message': d}
                     await websocket.send_json(m)

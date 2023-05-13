@@ -40,6 +40,7 @@ class Influx(Service):
                 pass
             else:
                 log.error(e)
+                log.error(traceback.print_exc())
                 raise e
 
     @with_loud_coroutine_exception
@@ -61,8 +62,11 @@ class Influx(Service):
         process_df(data)
 
     @with_loud_coroutine_exception
-    async def write_command_metadata(self, topic, cmdstruct, reply):
-        fields = cmdstruct.subset_map()
+    async def write_command_metadata(self, topic, cmd_struct, reply):
+        print(cmd_struct)
+        cmd_struct.pop('processors')
+        cmd_struct.pop('payload_bytes')
+        fields = cmd_struct
         t = fields['start_time_gps']
         #t.format = 'iso'
         #t = t.datetime.isoformat("T") + "Z"

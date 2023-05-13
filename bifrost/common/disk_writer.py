@@ -2,17 +2,17 @@ from bifrost.common.loud_exception import with_loud_exception
 import errno
 import json as json
 from ait.core import log
-
+from pathlib import Path
 
 class Disk_Writer():
     """
     Allows processors to write a dictionary to disk.
     TODO: Everyone should be requesting that monitor write to disk
     """
+    
     @with_loud_exception
     def __init__(self, path, extension, fname, pass_id, downlink_path, sv_name,subpath="",):
-        self.path = (downlink_path / path / subpath
-                     / (f"{fname}_{sv_name}_{pass_id}{extension}.ndjson"))
+        self.path = Path(f"{downlink_path} / {path} / {subpath} / {fname}_{sv_name}_{pass_id}{extension}.ndjson")
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
         try:

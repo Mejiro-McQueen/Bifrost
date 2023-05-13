@@ -1,6 +1,7 @@
 from enum import Enum, auto
 from bitstring import BitArray
 from colorama import Fore
+from bifrost.common.loud_exception import with_loud_exception
 
 
 class Packet_State(Enum):
@@ -22,6 +23,7 @@ class HeaderKeys(Enum):
 
 class CCSDS_Packet():
 
+    @with_loud_exception
     def __init__(self, PACKET_VERSION_NUMBER=0, PACKET_TYPE=0,
                  SEC_HDR_FLAG=0, APPLICATION_PROCESS_IDENTIFIER=0,
                  SEQUENCE_FLAGS=0, PACKET_SEQUENCE_OR_NAME=0,
@@ -41,28 +43,43 @@ class CCSDS_Packet():
             self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name] = PACKET_DATA_LENGTH
         self.secondary_header = {}  # TODO Handle secondary header
 
-        self.encoded_packet = bytes()
+        self.encoded_packet = bytes().hex()
         self.secondary_header_encoded = bytes()
         self.error = None
 
-    def __repr__(self):
-        s = str({'primary_header': self.primary_header,
-                 'secondary_header': self.secondary_header,
-                 'encoded_packet': self.encoded_packet.hex()})
+    @with_loud_exception
+    def marshall(self):
+        s = {
+            'data_type': type(self).__name__,
+            'primary_header': self.primary_header,
+            'secondary_header_encoded': self.secondary_header_encoded.hex(),
+            'data': self.data.hex(),
+            'error': self.error,
+            'is_idle': self.is_idle(),
+            'is_complete': self.is_complete(),
+            'encoded_packet': self.encoded_packet.hex(),
+            'missing': self.get_missing(),
+            'next_index': self.get_next_index(),
+        }
         return s
 
+
+    @with_loud_exception
+    def __repr__(self):
+        return str(self.marshall())
+
     @staticmethod
+    @with_loud_exception
     def decode(packet_bytes, secondary_header_length=0):
         """Generate a packet"""
         data_length = int.from_bytes(packet_bytes[4:6], 'big')
         if not data_length: # regular check is apid 111111....
-            #log.warn("Underflow: Insufficient Data")
+            #log.debug("Underflow: Insufficient Data")
             return (Packet_State.UNDERFLOW, None)
 
         if set(packet_bytes) == {224}:
-            #log.info(f"Idle Packet")
+            #log.debug(f"Idle Packet")
             return (Packet_State.IDLE, None)
-            return
 
         actual_packet = packet_bytes[:6 + data_length + 1]
         header_bits = BitArray(actual_packet[0:6]).bin
@@ -80,31 +97,40 @@ class CCSDS_Packet():
             p.secondary_header = data[:secondary_header_length]
             p.secondary_header_encoded = data[:secondary_header_length]
             p.data = data[secondary_header_length:]
-                
-        if p.is_complete():
+
+        p = p.marshall()
+        if p['is_complete']:
+            #log.debug(f"OK, Packet Complete: {p}")
             return (Packet_State.COMPLETE, p)
         else:
+            #log.debug(f"Not Ok, Packet spilled over: {p}")
             return (Packet_State.SPILLOVER, p)
 
+    @with_loud_exception
     def is_complete(self):
         return not bool(self.get_missing())
 
+    @with_loud_exception
     def is_idle(self):
         return self.primary_header[HeaderKeys.APPLICATION_PROCESS_IDENTIFIER.name] == 0b11111111111
 
+    @with_loud_exception
     def get_missing(self):
         m = (g := self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name]+1) - (q := len(self.data))
         m -= (k := len(self.secondary_header_encoded))
         #print(f"{m=} {g=} {q=} {k=}")
         return m
 
+    @with_loud_exception
     def get_next_index(self):
         return 6 + self.primary_header[HeaderKeys.PACKET_DATA_LENGTH.name] + 1
 
+    @with_loud_exception
     def __str__(self):
         return str(self.__class__) + ": " + str(self.__dict__)
 
     @staticmethod
+    @with_loud_exception
     def encode(data, application_process_identifier,
                packet_version_number=0,
                packet_type=1, sec_hdr_flag=0,

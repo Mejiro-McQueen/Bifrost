@@ -1,18 +1,17 @@
 from bifrost.common.loud_exception import with_loud_exception
 from abc import abstractmethod
 from ait.core import log
-import pickle
+import msgpack
 import setproctitle
-from colorama import Fore
+from colorama import Fore, Back
 import signal
 import os
-
 import asyncio
 import nats
 from nats.errors import ConnectionClosedError, TimeoutError, NoServersError, UnexpectedEOF
 import traceback
 import uvloop
-
+import sys
 
 class Service():
     def __init__(self):
@@ -41,8 +40,9 @@ class Service():
             log.error(e)
         else:
             log.error(e)
-        log.error(f"Killing {self}")
-        os.kill(os.getpid(), signal.SIGKILL)
+            log.error(f'Called from: {sys._getframe().f_back.f_code}')
+        log.error(f"{Back.RED}Killing {self}{Back.RESET}")
+        #os.kill(os.getpid(), signal.SIGKILL)
         raise e
 
     async def nc_connect(self):
@@ -59,6 +59,7 @@ class Service():
             print(f"Exception on nc connect! {e}")
             traceback.print_exc()
             log.error(e)
+            log.error(f'Called from: {sys._getframe().f_back.f_code}')
             exit()
 
     @with_loud_exception
@@ -72,10 +73,12 @@ class Service():
             log.error(f"{self.name} => Cancelling tasks!")
             # Known issue is not quoting topic string in services.yaml
             os.kill(os.getpid(), signal.SIGTERM)
+            log.error(f'Called from: {sys._getframe().f_back.f_code}')
             exit()
         except Exception as e:
             log.error(e)
             traceback.print_exc()
+            log.error(f'Called from: {sys._getframe().f_back.f_code}')
             exit(-1)
                                                     
     def shutdown(self, signum, frame):
@@ -90,11 +93,11 @@ class Service():
         # And stay dead.
         
     @staticmethod
-    def unpickled(f):
-        async def _unpickled(msg):
+    def deserialize(f):
+        async def _deserialized(msg):
             subject = msg.subject
             reply = msg.reply
-            data = pickle.loads(msg.data)
+            data = msgpack.unpackb(msg.data)
             try:
                 await f(subject, data, reply)
             except AttributeError as e:
@@ -116,7 +119,7 @@ class Service():
                 log.error(e)
                 traceback.print_exc()
                 os.kill(os.getpid(), signal.SIGTERM)
-        return _unpickled
+        return _deserialized
 
     @with_loud_exception
     @abstractmethod
@@ -174,12 +177,12 @@ class Service():
         await self.subscribe_topic(self.reconfig_pattern, self.reconfigure)
 
     async def subscribe_topic(self, topic, callback):
-        f = self.unpickled(callback)
+        f = self.deserialize(callback)
         self.subscription = await self.nc.subscribe(topic, cb=f)
 
     async def subscribe_jetstream(self, subject, callback):
         try:
-            f = self.unpickled(callback)
+            f = self.deserialize(callback)
             name = 'Bifrost-' + self.name.split('.')[-1]
             self.subscription_stream = await self.js.subscribe(subject=subject,
                                                                cb=f,
@@ -197,21 +200,22 @@ class Service():
         if not data:
             log.error("No data?!")
             return
-        data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
+        data = msgpack.packb(data)
         await self.js.publish(subject, data)
 
     async def publish(self, subject, data, reply=''):
         try:
-            data = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
+            data = msgpack.packb(data)
             await self.nc.publish(subject, data, reply)
             await self.nc.flush()
         except nats.errors.BadSubjectError:
             log.error(f'The pattern: "{subject}" is an invalid NATS subject')
-        except TypeError as e:
-            if 'pickle' in str(e):
-                log.error(f"Could not pickle {data} for {subject}: {e}")
         except Exception as e:
             log.error(e)
+            log.error(data)
+            log.error(f'Called from: {sys._getframe().f_back.f_code}')
+            log.error(f'{subject=}, {data=}, {reply=}')
+            log.error(traceback.print_exc())
 
     async def request(self, subject, data=''):
         inbox = self.nc.new_inbox()
@@ -219,7 +223,7 @@ class Service():
         await self.publish(subject, data, inbox)
         try:
             msg = await sub.next_msg(timeout=10)
-            msg = pickle.loads(msg.data)
+            msg = msgpack.unpackb(msg.data)
             return msg
         except nats.errors.TimeoutError:
             msg = f"No response from PUB/SUB network, or the service is taking longer than expected for call {subject} from {self.name}."

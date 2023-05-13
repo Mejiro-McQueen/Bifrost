@@ -28,11 +28,13 @@ class AOS_Tagger():
         return
 
     @with_loud_exception
-    def subset_map(self):
-        m = {'absolute_counter': self.absolute_counter,
-             'vcid_counter': self.vcid_sequence_counter,
-             'vcid_losses': self.vcid_loss_count,
-             'vcid_corruptions': self.vcid_corrupt_count}
+    def marshall(self):
+        m = {
+            'absolute_counter': self.absolute_counter,
+            'vcid_counter': {f'vcid_{k}': v for (k,v) in self.vcid_sequence_counter.items()},
+            'vcid_losses': {f'vcid_{k}': v for (k,v) in self.vcid_loss_count.items()},
+            'vcid_corruptions': {f'vcid_{k}': v for (k,v) in self.vcid_corrupt_count.items()},
+        }
         return m
 
     @with_loud_coroutine_exception
@@ -87,7 +89,7 @@ class AOS_Tagger():
         vcid = int(frame.virtual_channel)
         idle = frame.is_idle_frame
         channel_counter = int.from_bytes(frame.get('virtual_channel_frame_count'), 'big')
-        tagged_frame = TaggedFrame(frame=raw_frame,
+        tagged_frame = TaggedFrame(frame=raw_frame.hex(),
                                    vcid=vcid,
                                    idle=idle,
                                    channel_counter=channel_counter)
@@ -125,11 +127,13 @@ class AOS_Frame_Checks_Service(Service):
             return
 
         tagged_frame = await self.tagger.tag_frame(message)
+        tagged_frame = tagged_frame.marshall()
         # TODO: Goofy AOS Frame type assumes the VCID numbers, but does not give nice response when mismatch.
         # We crash whenever we do not have that VCID declared for JetStream
         # Add a guard in service.yaml
         try:
-            await self.stream(f'Telemetry.AOS.VCID.{tagged_frame.vcid}.TaggedFrame', tagged_frame)
+            vcid = tagged_frame['vcid']
+            await self.stream(f'Telemetry.AOS.VCID.{vcid}.TaggedFrame', tagged_frame)
         except Exception as e:
             log.error(e)
             log.error(tagged_frame)
@@ -138,7 +142,7 @@ class AOS_Frame_Checks_Service(Service):
     async def supervisor_tree(self):
         async def monitor():
             while True:
-                await self.publish('Bifrost.Monitors.Frames.Checks', self.tagger.subset_map())
+                await self.publish('Bifrost.Monitors.Frames.Checks', self.tagger.marshall())
                 await asyncio.sleep(self.report_time)
 
         self.loop.create_task(monitor())

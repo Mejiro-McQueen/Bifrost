@@ -85,7 +85,7 @@ class Subscription:
              'Rx_Count': self.receive_counter}
         return m
 
-#    @with_loud_coroutine_exception
+    @with_loud_coroutine_exception
     async def handle_server(self):
         self.reader, self.writer = await asyncio.start_server(self.hostname, self.port)
         while self.reader or self.writer:
@@ -100,7 +100,7 @@ class Subscription:
                 await self.read_queue.put((self.topic, data))
                 self.receive_counter += 1
 
-#    @with_loud_coroutine_exception
+    @with_loud_coroutine_exception
     async def handle_client(self):
         self.reader, self.writer = await asyncio.open_connection(self.hostname, self.port)
         log.info(f"{Fore.GREEN}Connection to {self.server_name} is ready. {Fore.RESET}")
@@ -258,12 +258,13 @@ class TCP_Manager(Service):
 
         :returns: data from topic
         """
+
         if not message:
             log.info('Received no data')
             return
 
-        if isinstance(message, CmdMetaData):
-            pl = message.payload_bytes
+        if message.get('data_type') == 'CmdMetaData':
+            pl = bytearray.fromhex(message['payload_bytes'])
         else:
             pl = message
 
@@ -271,7 +272,7 @@ class TCP_Manager(Service):
         for write_queue in write_queues:
             await write_queue.put(pl)
 
-        if isinstance(message, CmdMetaData):
+        if message.get('data_type') == 'CmdMetaData':
             await self.publish('Uplink.CmdMetaData.Complete', message)
 
     @with_loud_coroutine_exception
