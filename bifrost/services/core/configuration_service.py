@@ -38,7 +38,7 @@ class Configuration(Service):
 
     @with_loud_coroutine_exception
     async def request_downlink_path(self, topic, data, reply):
-        await self.publish(reply, self.downlink_path)
+        await self.publish(reply, str(self.downlink_path))
 
     @with_loud_coroutine_exception
     async def add_streams(self):

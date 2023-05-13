@@ -3,6 +3,7 @@ import ait.core
 import ait.dsn.sle.tctf as tctf
 from ait.core import log
 from bifrost.services.sdls_services.sdls_utils import SDLS_Type, get_sdls_type
+from bifrost.common.loud_exception import with_loud_coroutine_exception, with_loud_exception
 config_prefix = 'dsn.sle.tctf.'
 
 
@@ -38,7 +39,8 @@ class TCTF_Service(Service):
                 frame_sequence_number: 0
                 apply_error_correction_field: True
     """
-    
+
+    @with_loud_exception
     def __init__(self):
         super().__init__()
         self.tf_version_num = ait.config.get(config_prefix+'transfer_frame_version_number', None)
@@ -59,13 +61,14 @@ class TCTF_Service(Service):
             log.info(f"expecting to process CLEAR TCTFs only.")
         self.start()
 
+    @with_loud_coroutine_exception
     async def process(self, topic, cmd_struct, reply):
         if not cmd_struct:
             log.error(f"Received no data from {topic}")
             return
-        if not check_data_field_size(cmd_struct.payload_bytes):
+        if not check_data_field_size(cmd_struct['payload_bytes']):
             log.error(f"Failed payload check from {topic}")
-            cmd_struct.payload_size_valid = False
+            cmd_struct['valid'] = False
         else:
             log.debug(f"Passed payload check")
         frame = tctf.TCTransFrame(tf_version_num=self.tf_version_num,
@@ -73,7 +76,7 @@ class TCTF_Service(Service):
                                   rsvd=self.rsvd, scID=self.scID,
                                   vcID=self.vcID,
                                   frame_seq_num=self.frame_seq_num,
-                                  data_field=cmd_struct.payload_bytes,
+                                  data_field=bytearray.fromhex(cmd_struct['payload_bytes']),
                                   apply_ecf=self.apply_ecf)
 
         try:
@@ -85,22 +88,23 @@ class TCTF_Service(Service):
         
         log.debug(f"{encoded_frame}")
 
-        cmd_struct.payload_bytes = encoded_frame
+        cmd_struct['payload_bytes'] = encoded_frame.hex()
         if check_tctf_size(encoded_frame):
             log.debug("TCTF passed size check.")
-            cmd_struct.payload_size_valid = True
+            cmd_struct['valid'] = True
         else:
             log.info("Failed TCTF size check.")
-            cmd_struct.payload_size_valid = False
+            cmd_struct['valid'] = False
         
         await self.publish('Uplink.CmdMetaData.TCTF', cmd_struct)
         self.frame_seq_num = (self.frame_seq_num + 1) % 255
-        return encoded_frame
 
+    @with_loud_coroutine_exception
     async def reconfigure(self, topic, message, reply):
         await super().reconfigure(topic, message, reply)
         return
 
+@with_loud_exception
 def get_tctf_size(sdls_type=SDLS_Type.ENC):
     log_header = __name__ + "-> get_tctf_size=>"
     if not isinstance(sdls_type, SDLS_Type):
@@ -126,6 +130,7 @@ def get_tctf_size(sdls_type=SDLS_Type.ENC):
 
     return maximum
 
+@with_loud_exception
 def check_tctf_size(tctf, sdls_type=None):
     if not sdls_type: # Caller deferring SDLS type to config.yaml
         sdls_type = get_sdls_type()
@@ -144,7 +149,8 @@ def check_tctf_size(tctf, sdls_type=None):
     else:
         log.error(f"{res}. Got size {len(tctf)} but expected <= {maximum} ")
     return res
-    
+
+@with_loud_exception
 def get_max_data_field_size(sdls_type=None):
     maximum = None
     if not isinstance(sdls_type, SDLS_Type):
@@ -183,6 +189,7 @@ def get_max_data_field_size(sdls_type=None):
             maximum = tctf.ICD.Sizes.MAX_DATA_FIELD_NO_ECF_OCTETS.value
     return maximum
 
+@with_loud_exception
 def check_data_field_size(user_data_field, sdls_type=None):
     if not sdls_type: # Caller deferring SDLS type to config.yaml
         sdls_type = get_sdls_type()

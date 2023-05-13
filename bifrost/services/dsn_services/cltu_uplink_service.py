@@ -123,7 +123,7 @@ class SLE_CLTU_Uplink_Service(Service):
     @with_loud_coroutine_exception
     async def uplink(self, topic, message, reply):
         try:
-            self.cltu_object.upload_cltu(message.payload_bytes)
+            self.cltu_object.upload_cltu(bytearray.fromhex(message['payload_bytes']))
             self.send_counter += 1
             ait.core.log.debug("uploaded CLTU")
 

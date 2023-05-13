@@ -29,13 +29,16 @@ class RealTime_Telemetry_Frame_Processor(Service):
 
     @with_loud_coroutine_exception
     async def process(self, topic, data, reply):
-        log.debug(f"REAL TIME! {data.channel_counter}")
+        log.debug(f"REAL TIME! {data['channel_counter']}")
         try:
-            packets = self.frame_depacketizer(data)
-            tagged_packets = self.packet_tagger(packets)
+            ccsds_packets = self.frame_depacketizer(data) # Can be a lot of nones, fix in depacketizer
+            tagged_packets = self.packet_tagger(ccsds_packets)
             for tagged_packet in tagged_packets:
-                subj = f'Telemetry.AOS.VCID.{tagged_packet.vcid}.TaggedPacket.{tagged_packet.packet_name}'
-                await self.publish(subj, tagged_packet.subset_map())
+                  vcid = tagged_packet['vcid']
+                  packet_name = tagged_packet['packet_name']
+                  subj = f"Telemetry.AOS.VCID.{vcid}.TaggedPacket.{packet_name}"
+                  await self.publish(subj, tagged_packet)
+                
         except Exception as e:
             log.error(e)
             traceback.print_exc()

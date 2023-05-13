@@ -57,10 +57,10 @@ class CommandLoader():
         command = ' '.join([command, *cleaned_args])
         try:
             cmd_struct = await self.request('Bifrost.Services.Dictionary.Command.Generate', command)
-            cmd_struct.uid = uid
-            cmd_struct.sequence = sequence
-            cmd_struct.total = total
-            if cmd_struct.valid and not dry_run:
+            cmd_struct['uid'] = uid
+            cmd_struct['sequence'] = sequence
+            cmd_struct['total'] = total
+            if cmd_struct['valid'] and not dry_run:
                 await self.publish("Uplink.CmdMetaData", cmd_struct)
         except Exception as e:
             log.error(e)
@@ -70,14 +70,14 @@ class CommandLoader():
 
     def get_tracker(self, cmd_struct):
         def new_tracker():
-            pbar = tqdm.tqdm(total=cmd_struct.total, unit='commands', unit_scale=True, colour='BLUE', initial=0)
-            pbar.set_description(f"{cmd_struct.payload_string}")
+            pbar = tqdm.tqdm(total=cmd_struct['total'], unit='commands', unit_scale=True, colour='BLUE', initial=0)
+            pbar.set_description(f"{cmd_struct['payload_string']}")
             return pbar
 
-        tracker = self.uplink_trackers.get(cmd_struct.uid, None)
+        tracker = self.uplink_trackers.get(cmd_struct['uid'], None)
         if not tracker:
             tracker = new_tracker()
-            self.uplink_trackers[cmd_struct.uid] = tracker
+            self.uplink_trackers[cmd_struct['uid']] = tracker
         return tracker
 
     def update_tracker(self, cmd_struct):
@@ -85,7 +85,7 @@ class CommandLoader():
         tracker.update()
         if tracker.n == tracker.total:
             tracker.close()
-            log.info(f"Finished {cmd_struct.uid}")
+            log.info(f"Finished {cmd_struct['uid']}")
 
     def close_tracker(self, cmd_struct):
         tracker = self.get_tracker(cmd_struct)
@@ -109,11 +109,11 @@ class CommandLoader():
             res['valid'] = all(i['valid'] for i in res['result'])
         elif command_type is Command_Type.COMMAND:
             cmd_struct = await self.request('Bifrost.Services.Dictionary.Command.Validate', i)
-            res['valid'] = cmd_struct.valid
-            res['payload'] = cmd_struct.payload_bytes
-            res['command'] = cmd_struct.payload_string
+            res['valid'] = cmd_struct['valid']
+            res['payload'] = cmd_struct['payload_bytes']
+            res['command'] = cmd_struct['payload_string']
             if res['payload']:
-                res['payload'] = str(res['payload'].hex())
+                res['payload'] = res['payload']
             else:
                 res['payload'] = 'Error'
         elif command_type is Command_Type.ECHO:
@@ -145,7 +145,7 @@ class CommandLoader():
             uid = CmdMetaData.get_uid()
             
         res = {'result': None,
-               'uid': str(uid)}
+               'uid': uid}
         res = self.timestamp(res, 'start')
         res['result'] = False
         res['valid'] = False
@@ -164,22 +164,27 @@ class CommandLoader():
             asyncio.create_task(self.execute_cl_script(Path(directive), uid))
             res['result'] = 'Accepted'
             res['valid'] = 'Maybe'
+            
         elif command_type is Command_Type.COMMAND:
             # raw command
             log.debug("Execute raw command")
             cmd_struct = await self.dispatch_command(directive, uid, sequence, total)
-            res['result'] = {'uid': str(cmd_struct.uid),
-                             'valid': cmd_struct.valid}
+            res['result'] = {'uid': cmd_struct['uid'],
+                             'valid': cmd_struct['valid']}
+            
         elif Command_Type is Command_Type.INVALID:
             res['valid'] = False
             res['result'] = "Invalid Command"
+            
         elif command_type is Command_Type.SLEEP:
             _, t = directive.split(' ')
             await asyncio.sleep(float(t))
+
         elif command_type is Command_Type.ECHO:
             log.info(directive)
             res['valid'] = True
             res['result'] = directive
+
         res = self.timestamp(res, 'finish')
         return res
 
@@ -257,8 +262,7 @@ class CommandLoader():
         # kind = < start' | finish' >
         kind += '_time_gps'
         t = CmdMetaData.gps_timestamp_now()
-        t.format = 'iso'
-        res[kind] = str(t)
+        res[kind] = t
         return res
     
        
@@ -299,9 +303,9 @@ class Command_Loader_Service(Service):
 
     @with_loud_coroutine_exception
     async def uplink_complete(self, topic, msg, reply):
-        msg.set_finish_time_gps()
+        msg['finish_time_gps'] = CmdMetaData.gps_timestamp_now(iso_string=True)
         self.command_loader.update_tracker(msg)
-        await self.publish("Bifrost.Messages.Info.CommandLoader.Uplink_Status", msg.subset_map())
+        await self.publish("Bifrost.Messages.Info.CommandLoader.Uplink_Status", msg)
         await self.publish('Uplink.CmdMetaData.Log', msg)
 
     @with_loud_coroutine_exception

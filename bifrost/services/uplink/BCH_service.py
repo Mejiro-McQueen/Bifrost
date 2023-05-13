@@ -12,7 +12,8 @@ class BCH_Service(Service):
 
     @with_loud_coroutine_exception
     async def encode_cmd_metadata(self, topic, cmd_metadata, reply):
-        cmd_metadata.payload_bytes = self.process(cmd_metadata.payload_bytes)
+        data = self.process(bytearray.fromhex(cmd_metadata['payload_bytes']))
+        cmd_metadata['payload_bytes'] = data.hex()
         await self.publish('Uplink.CmdMetaData.TCTF.BCH', cmd_metadata)
 
     @with_loud_coroutine_exception

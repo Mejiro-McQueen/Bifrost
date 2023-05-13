@@ -2,23 +2,26 @@ from ait.core import log
 from ait.dsn.sle.frames import AOSTransFrame
 from colorama import Fore, Back, Style
 from bifrost.common.ccsds_packet import Packet_State, CCSDS_Packet
-
+from bifrost.common.loud_exception import with_loud_exception
 
 class AOS_to_CCSDS_Depacketization():
+
+    @with_loud_exception
     def __init__(self, secondary_header_length=0):
         self.bytes_from_previous_frames = bytes()
         self.secondary_header_length = secondary_header_length
-        
-    def depacketize(self, data):
-        log.debug("NEW")
 
+    @with_loud_exception
+    def depacketize(self, data):
+
+        @with_loud_exception
         def attempt_packet(data):
             stat, p = CCSDS_Packet.decode(data, self.secondary_header_length)
             if stat is Packet_State.COMPLETE:
                 log.debug(f"{Fore.GREEN} Got a packet! {Fore.RESET}")
                 accumulated_packets.append(p)
                 self.bytes_from_previous_frames = bytes()
-                return p.get_next_index()
+                return p['next_index']
 
             elif stat is Packet_State.SPILLOVER:
                 log.debug(f"{Fore.MAGENTA} SPILLOVER missing {p.get_missing()} bytes {Fore.RESET}")
@@ -34,6 +37,7 @@ class AOS_to_CCSDS_Depacketization():
                 log.debug(f"{Fore.YELLOW} IDLE {Fore.RESET}")
                 return None
 
+        @with_loud_exception
         def handle_spillover_packet(data):
             p = attempt_packet(self.bytes_from_previous_frames + data)
             if p:

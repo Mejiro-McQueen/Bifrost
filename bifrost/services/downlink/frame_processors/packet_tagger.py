@@ -27,11 +27,11 @@ class CCSDS_Packet_Tagger:
         for packet in packets:
             try:
                 self.counter += 1
-                if packet.is_idle():
+                if packet['is_idle']:
                     continue
 
                 # Decoding
-                apid = packet.primary_header['APPLICATION_PROCESS_IDENTIFIER']
+                apid = packet['primary_header']['APPLICATION_PROCESS_IDENTIFIER']
                 packet_def = tlm_dict.lookup_by_opcode(apid)  # Call to AIT, need to find a way to make call to dict service
                 if not packet_def:
                     log.error(f"Could not lookup apid/opcode/{apid=}, {self.processor_name=}, {self.vcid=}, {packet=}")
@@ -39,8 +39,8 @@ class CCSDS_Packet_Tagger:
                     
                 log.debug(f"{Fore.GREEN} OK! {apid=} {Fore.RESET}")
                 tagged_packet = TaggedPacket(packet, packet_def.name, apid)
-                decoded_map = tlm.Packet(packet_def, packet.data)  # Call to AIT
-                tagged_packet.decoded_map = dict(decoded_map.items())
+                decoded_map = tlm.Packet(packet_def, bytearray.fromhex(packet['data']))  # Call to AIT
+                tagged_packet.decoded_packet = dict(decoded_map.items())
 
                 # Alarms Stamping
                 tagged_packet.field_alarms = self.get_alarm_map(tagged_packet)
@@ -56,7 +56,7 @@ class CCSDS_Packet_Tagger:
                 tagged_packet.pass_id = self.pass_id
                 tagged_packet.sv_identifier = self.sv_identifier
                 tagged_packet.time_processed_utc = utc_timestamp_now()
-                tagged_packets.append(tagged_packet)
+                tagged_packets.append(tagged_packet.marshall())
             except struct.error as e:
                 log.error(f"Could not decode tagged_packet: {e}")
                 continue
@@ -74,7 +74,7 @@ class CCSDS_Packet_Tagger:
 
     def get_alarm_map(self, tagged_packet: TaggedPacket):
         field_alarms = {}
-        for (packet_field, value) in tagged_packet.decoded_map.items():
+        for (packet_field, value) in tagged_packet.decoded_packet.items():
             alarm_state, threshold = self.alarm_check(tagged_packet.packet_name,
                                                       packet_field, value)
             field_alarms[packet_field] = {'state': alarm_state.name,
