@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+
+import asyncio
+import websockets
+import json
+
+
+async def telemetry_view():
+    # async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
+    #     message = {'topic': 'Uplink.CmdMetaData.CLTU',
+    #                'server_name': 'CMD_FSW_SIM',
+    #                'hostname': 'some_ip',
+    #                'port': 666,
+    #                'mode': 'TRANSMIT',
+    #                'timeout_seconds': 1}
+
+    #     msg = json.dumps({'topic': 'Bifrost.Directive.TCP_Manager.Connect',
+    #                       'message': message})
+    #     print(msg)
+    #     await websocket.send(msg)
+    #     resp = await websocket.recv()
+    #     resp = json.loads(resp)
+    #     resp = json.dumps(resp, indent=4)
+    #     print(resp)
+    #     print("\n")
+    #     break
+
+    async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
+        msg = json.dumps({'topic': 'Bifrost.Directive.NASA_FSS_Service.Command',
+                          'message': 'FSS_START_CFS'})
+        await websocket.send(msg)
+        resp = await websocket.recv()
+        resp = json.loads(resp)
+        resp = json.dumps(resp, indent=4)
+        print(resp)
+        print("\n")
+        break
+
+    async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
+        await asyncio.sleep(5)
+        msg = json.dumps({'topic': 'Bifrost.Directive.TCP_Manager.Reconnect',
+                          'message': 'CMD_FSW_SIM'})
+        await websocket.send(msg)
+        resp = await websocket.recv()
+        resp = json.loads(resp)
+        resp = json.dumps(resp, indent=4)
+        print(resp)
+        print("\n")
+        break
+
+    async for websocket in websockets.connect("ws://bifrost:8000/command_loader"):
+        msg = json.dumps({'topic': 'CL.Execute',
+                          'message': 'CFS_TO_ENABLE_OUTPUT'})
+        await websocket.send(msg)
+        resp = await websocket.recv()
+        resp = json.loads(resp)
+        resp = json.dumps(resp, indent=4)
+        print(resp)
+        print("\n")
+        break
+
+    async for websocket in websockets.connect("ws://bifrost:8000/service_directive"):
+        await asyncio.sleep(5)
+        msg = json.dumps({'topic': 'Bifrost.Directive.TCP_Manager.Reconnect',
+                          'message': 'CMD_FSW_SIM'})
+        await websocket.send(msg)
+        resp = await websocket.recv()
+        resp = json.loads(resp)
+        resp = json.dumps(resp, indent=4)
+        print(resp)
+        print("\n")
+        break
+
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(telemetry_view())
+    except Exception as e:
+        print(e)
+    except KeyboardInterrupt:
+        pass
+
+
+ # loop = asyncio.get_event_loop()
+ #        loop.run_until_complete(telemetry_view())
+ #        while (r := input("Restart Script? [y/n]")) not in ['Y','y','']:
+ #            if r not in ['Y', 'y', '']:
+ #                return

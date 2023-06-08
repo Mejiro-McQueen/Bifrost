@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Bifrost OpenMCT</title>
+    <script type='text/javascript' src="openmct.js"></script>
+    <script type='text/javascript' src="bifrost.js"></script>
+  </head>
+  <body>
+  </body>
+  <script type='text/javascript'>
+    (async function (){
+        const configRes = await fetch('/bifrost-config.json');
+        const config = await configRes.json();
+
+        openmct.install(openmct.plugins.LocalStorage());
+        openmct.install(openmct.plugins.MyItems());
+        openmct.install(openmct.plugins.UTCTimeSystem());
+        openmct.time.clock('local', {start: -15 * 60 * 1000, end: 0});
+        openmct.time.timeSystem('utc');
+        openmct.install(openmct.plugins.Espresso());
+
+		
+ 		const bifrost = new Bifrost(config);
+		openmct.install(bifrost.Integration())
+		openmct.install(bifrost.RealtimeTelemetry())
+
+		openmct.start();
+    })();
+  </script>
+</html>
