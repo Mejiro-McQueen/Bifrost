@@ -1,0 +1,3 @@
+[submodule "ait"]
+	path = ait
+	url = git@github.com:Mejiro-McQueen/ait.git
