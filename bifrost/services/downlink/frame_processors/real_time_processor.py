@@ -36,8 +36,9 @@ class RealTime_Telemetry_Frame_Processor(Service):
             for tagged_packet in tagged_packets:
                 vcid = tagged_packet['vcid']
                 packet_name = tagged_packet['packet_name']
-                subj = f"Telemetry.AOS.VCID.{vcid}.TaggedPacket.{packet_name}"
-                await self.publish(subj, tagged_packet)
+                subj = f"Telemetry.AOS.VCID.{vcid}.TaggedPacket"
+                await self.publish(f'{subj}.{packet_name}', tagged_packet)
+                await self.stream(f'{subj}.Decoded', tagged_packet)
                 
         except Exception as e:
             log.error(e)
