@@ -1,6 +1,7 @@
 from node:19 AS builder
 RUN git clone https://github.com/nasa/openmct.git
 WORKDIR openmct
+RUN	git checkout tags/v2.2.5
 RUN npm update && npm install
 
 from nginx:latest
