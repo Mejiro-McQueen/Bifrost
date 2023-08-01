@@ -2,6 +2,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
+from websockets.exceptions import ConnectionClosed
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from starlette.middleware import Middleware
@@ -76,7 +77,10 @@ class Web_Server(Service):
             pass
         except TypeError:
             print(f'{m} is not JSONable')
-        
+        except ConnectionClosed:
+            log.info("Websocket Connection closed.")
+        except Exception as e:
+            log.error(e)
 
     @with_loud_coroutine_exception
     async def ws_telemetry(self, websocket):
@@ -93,6 +97,10 @@ class Web_Server(Service):
                     await websocket.send_json(d)
         except WebSocketDisconnect:
             pass
+        except ConnectionClosed:
+            log.info("Websocket Connection closed.")
+        except Exception as e:
+            log.error(e)
 
     @with_loud_coroutine_exception
     async def tlm_dict(self, request):
@@ -128,7 +136,11 @@ class Web_Server(Service):
                 await websocket.send_json(m)
         except WebSocketDisconnect:
             pass
-        
+        except ConnectionClosed:
+            log.info("Websocket Connection closed.")
+        except Exception as e:
+            log.error(e)
+
     @with_loud_coroutine_exception
     async def config_request(self, request):
         k = request.query_params.get('config_key', None)
@@ -150,6 +162,10 @@ class Web_Server(Service):
             pass
         except TypeError:
             print(f'{m} is not JSONable')
+        except ConnectionClosed:
+            log.info("Websocket Connection closed.")
+        except Exception as e:
+            log.error(e)
 
     @with_loud_coroutine_exception
     async def ws_monitors(self, websocket):
@@ -166,6 +182,10 @@ class Web_Server(Service):
             pass
         except TypeError:
             print(f'{m} is not JSONable')
+        except ConnectionClosed:
+            log.info("Websocket Connection closed.")
+        except Exception as e:
+            log.error(e)
 
     @with_loud_coroutine_exception
     async def sle_raf_directive(self, request):
@@ -210,3 +230,6 @@ class Web_Server(Service):
             pass
         except TypeError:
             print(f'{m} is not JSONable')
+
+
+# TODO: This is all junk, rewrite in golang.
