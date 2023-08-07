@@ -94,11 +94,20 @@ How can I visualize or analyze my telemetry?
 Tips
 ====
 
-- Do not use python if at all possible, choose a language that has good NATS Jetstream support (Golang for example), or any langauge with good NATS support if you do not need to operate on telemetry streams (Haskell, Common Lisp), that is, write new services without using Bifrost python libraries. Your new software can interact with Bifrost services over the NATS network.
+- Do not use python if at all possible, choose a language that has good NATS Jetstream support (Golang for example, you may also be able to use websockets), or any langauge with a good NATS client if you do not need to operate on telemetry streams (Haskell, Common Lisp), that is, write new services without using Bifrost python libraries. Your new software can interact with Bifrost services over the NATS network.
+- See [Echo Service Example](bifrost/services/examples/echo.py#L5) for examples on how to define a custom service. 
 - If you must use python, do not use Gevent, Greenlets, gipc, etc... Bifrost historically used gevent, however performance was terrible and in many cases dropped telemetry all together; use python's built in asyncio library as much as possible, we have provided helper libraries to facilitate this in your services.
 - You can distribute your GDS across different machines or deploy on AWS!
   
 Bifrost Architecture
 ====================
 
-Comming soon!
+Bifrost Network
+---------------
+![Bifrost-Expansion](https://github.com/Mejiro-McQueen/Bifrost/assets/96747634/7ee7fcfa-fc30-47af-94cd-2d48e50740a9)
+
+Bifrost User/MOS CONOPS with AWS
+--------------------------------
+<img width="799" alt="MOS-CONOPS-AWS" src="https://github.com/Mejiro-McQueen/Bifrost/assets/96747634/7780d16b-afc0-4a6b-a4cc-a7c2ce1b21f2">
+
+
