@@ -31,7 +31,7 @@ setup(
         'uvloop',
         'websockets',
         # AIT-DSN Junk
-        'gevent==1.5.0',
+        'gevent==23.9.1',
         'greenlet==0.4.16',
     ],
     packages=find_packages(),
